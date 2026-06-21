@@ -11,10 +11,12 @@ interface UserSession {
 interface PontufyState {
   currentUser: UserSession;
   currentPointsBalance: number;
+  searchQuery: string;
 
   setPointsBalance: (balance: number) => void;
   addPoints: (amount: number) => void;
   deductPoints: (amount: number) => void;
+  setSearchQuery: (query: string) => void;
 }
 
 export const useStore = create<PontufyState>((set) => ({
@@ -27,8 +29,10 @@ export const useStore = create<PontufyState>((set) => ({
   },
 
   currentPointsBalance: 1250,
+  searchQuery: '',
 
   setPointsBalance: (balance) => set({ currentPointsBalance: balance }),
   addPoints: (amount) => set((s) => ({ currentPointsBalance: s.currentPointsBalance + amount })),
   deductPoints: (amount) => set((s) => ({ currentPointsBalance: Math.max(0, s.currentPointsBalance - amount) })),
+  setSearchQuery: (query) => set({ searchQuery: query }),
 }));

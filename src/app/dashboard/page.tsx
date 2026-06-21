@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { useStore } from '@/store/useStore';
 
 import HeroCourse from '@/components/dashboard/HeroCourse';
 import CourseRow from '@/components/dashboard/CourseRow';
@@ -16,13 +17,14 @@ export default function Home() {
   const coursesToDisplay = dynamicCourses?.length ? dynamicCourses : continueWatching;
   const rewardsToDisplay = dynamicRewards?.length ? dynamicRewards.slice(0, 4) : rewardsAlmostThere;
 
-  const [searchTerm, setSearchTerm] = useState('');
+  // Lendo o estado global levantado pela Navbar
+  const searchQuery = useStore((s) => s.searchQuery);
 
   const filterCourses = (courses: any[]) => {
-    if (!searchTerm) return courses;
+    if (!searchQuery) return courses;
     return courses.filter(c => 
-      c.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      (c.description && c.description.toLowerCase().includes(searchTerm.toLowerCase()))
+      c.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      (c.description && c.description.toLowerCase().includes(searchQuery.toLowerCase()))
     );
   };
 
@@ -39,23 +41,6 @@ export default function Home() {
       
       {/* Rest of the Dashboard */}
       <div className="relative z-20 -mt-10 space-y-12">
-        
-        {/* Search Bar */}
-        <div className="px-8 md:px-16 max-w-4xl">
-          <div className="relative">
-            <input 
-              type="text" 
-              placeholder="Buscar trilhas, cursos ou assuntos..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-6 py-4 rounded-xl shadow-md border border-gray-100 text-brand-slate focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-shadow bg-white"
-            />
-            <div className="absolute right-6 top-4 text-gray-400">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-            </div>
-          </div>
-        </div>
-
         {filteredRecommended.length > 0 && (
           <CourseRow title="Trilhas Recomendadas pela IA" courses={filteredRecommended} />
         )}
