@@ -33,6 +33,7 @@ export async function POST(request: Request) {
       const ledgerEntry = await tx.pointsLedger.create({
         data: {
           userId: userId,
+          tenantId: tenantId,
           type: 'gain',
           pointsAmount: pointsToAward,
           description: `Conclusão da Aula: ${lesson.title}`
@@ -50,6 +51,9 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error("Erro ao completar aula:", error);
-    return NextResponse.json({ error: "Falha interna no servidor." }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || "Falha interna no servidor ao concluir aula." }, 
+      { status: 500 }
+    );
   }
 }
