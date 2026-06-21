@@ -10,14 +10,13 @@ export default function Navbar() {
   return (
     <nav className="fixed top-0 w-full z-50 transition-all duration-300 bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100 px-6 py-4 flex items-center justify-between">
       <div className="flex items-center gap-8">
-        <div className="text-2xl font-black tracking-tighter text-brand-slate cursor-pointer">
+        <Link href="/dashboard" className="text-2xl font-black tracking-tighter text-brand-slate cursor-pointer">
           Pontufy <span className="text-sm font-medium text-brand-text ml-2 border-l border-gray-300 pl-2">{user.company}</span>
-        </div>
+        </Link>
         <div className="hidden md:flex gap-6 text-sm font-medium text-brand-text">
-          <a href="#" className="text-brand-slate transition-colors hover:text-emerald-500">Dashboard</a>
-          <a href="#" className="transition-colors hover:text-emerald-500">Meus Cursos</a>
-          <a href="#" className="transition-colors hover:text-emerald-500">Trilhas</a>
-          <a href="#" className="transition-colors hover:text-emerald-500">Clube de Benefícios</a>
+          <Link href="/dashboard" className="text-brand-slate transition-colors hover:text-emerald-500">Página Inicial</Link>
+          <Link href="/dashboard/cursos" className="transition-colors hover:text-emerald-500">Meus Cursos/Trilhas</Link>
+          <Link href="/loja" className="transition-colors hover:text-emerald-500">Clube de Benefícios</Link>
         </div>
       </div>
 

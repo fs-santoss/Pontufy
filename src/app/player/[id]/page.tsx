@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import Link from 'next/link';
 
 import VideoPlayer from '@/components/player/VideoPlayer';
 import SidebarModules from '@/components/player/SidebarModules';
@@ -54,7 +55,12 @@ export default function CoursePlayerPage() {
 
       <div className="flex-1 flex h-[calc(100vh-72px)]">
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col bg-white">
+        <div className="flex-1 flex flex-col bg-white relative">
+          <div className="absolute top-4 left-4 z-50">
+            <Link href="/dashboard" className="flex items-center gap-2 bg-black/60 hover:bg-black/80 text-white px-4 py-2 rounded-full backdrop-blur-md text-sm font-bold transition-all shadow-lg">
+              ← Voltar para Início
+            </Link>
+          </div>
           <div className="h-[60%] lg:h-[70%]">
             <VideoPlayer lesson={activeLesson} onComplete={handleLessonComplete} />
           </div>

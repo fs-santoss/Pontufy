@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import AuthProvider from "@/components/providers/AuthProvider";
 import Navbar from '@/components/layout/Navbar';
+import Footer from '@/components/layout/Footer';
 import "./globals.css";
 
 const geistSans = Geist({
@@ -35,6 +36,7 @@ export default function RootLayout({
           <div className="pt-[72px] flex-1">
             {children}
           </div>
+          <Footer />
         </AuthProvider>
       </body>
     </html>

@@ -1,4 +1,5 @@
 import { PlayCircle, Coins } from 'lucide-react';
+import Link from 'next/link';
 
 export default function CourseRow({ title, courses }: { title: string, courses: any[] }) {
   return (
@@ -7,9 +8,10 @@ export default function CourseRow({ title, courses }: { title: string, courses: 
       
       <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-4 -mx-4 px-4">
         {courses.map((course) => (
-          <div 
+          <Link 
+            href={`/player/${course.id}`}
             key={course.id} 
-            className="flex-none w-[280px] group cursor-pointer"
+            className="flex-none w-[280px] group cursor-pointer block"
           >
             <div className="relative h-[160px] rounded-lg overflow-hidden shadow-sm transition-all duration-300 group-hover:shadow-xl group-hover:-translate-y-1 group-hover:scale-105 border border-gray-200">
               <img 
@@ -38,7 +40,7 @@ export default function CourseRow({ title, courses }: { title: string, courses: 
                 <Coins size={12} /> +{course.pointsReward} pts
               </div>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
     </div>
