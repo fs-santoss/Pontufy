@@ -1,0 +1,75 @@
+{
+  "user": {
+    "name": "Alex",
+    "pointsBalance": 1250,
+    "company": "TechCorp"
+  },
+  "heroCourse": {
+    "id": "c-101",
+    "title": "Liderança na Era da IA",
+    "description": "Desenvolva habilidades essenciais para liderar equipes multidisciplinares com suporte de Inteligência Artificial.",
+    "duration": "2h 30m",
+    "pointsReward": 500,
+    "thumbnail": "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200",
+    "modules": 5
+  },
+  "continueWatching": [
+    {
+      "id": "c-201",
+      "title": "Comunicação Não Violenta",
+      "progress": 65,
+      "pointsReward": 150,
+      "thumbnail": "https://images.unsplash.com/photo-1573164713988-8665fc963095?auto=format&fit=crop&q=80&w=600"
+    },
+    {
+      "id": "c-202",
+      "title": "Fundamentos de Cloud Computing",
+      "progress": 20,
+      "pointsReward": 300,
+      "thumbnail": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&q=80&w=600"
+    }
+  ],
+  "recommendedRoles": [
+    {
+      "id": "c-301",
+      "title": "Gestão Ágil de Projetos",
+      "pointsReward": 400,
+      "thumbnail": "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&q=80&w=600"
+    },
+    {
+      "id": "c-302",
+      "title": "Data Driven Decision Making",
+      "pointsReward": 450,
+      "thumbnail": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=600"
+    },
+    {
+      "id": "c-303",
+      "title": "Inteligência Emocional B2B",
+      "pointsReward": 250,
+      "thumbnail": "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&q=80&w=600"
+    }
+  ],
+  "rewardsAlmostThere": [
+    {
+      "id": "r-001",
+      "title": "Voucher iFood R$50",
+      "pointsRequired": 1500,
+      "thumbnail": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&q=80&w=400",
+      "brand": "iFood"
+    },
+    {
+      "id": "r-002",
+      "title": "Assinatura Spotify 1 Mês",
+      "pointsRequired": 1800,
+      "thumbnail": "https://images.unsplash.com/photo-1611162617474-5b21e879e113?auto=format&fit=crop&q=80&w=400",
+      "brand": "Spotify"
+    },
+    {
+      "id": "r-003",
+      "title": "Cupom Amazon R$100",
+      "pointsRequired": 3000,
+      "thumbnail": "https://images.unsplash.com/photo-1523474253046-8cd2748b5fd2?auto=format&fit=crop&q=80&w=400",
+      "brand": "Amazon"
+    }
+  ]
+}

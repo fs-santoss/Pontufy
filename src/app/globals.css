@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-lavender: #E6E6FA;
+  --color-brand-mint: #A7F3D0;
+  --color-brand-slate: #334155;
+  --color-brand-gray: #F9FAFB;
+  --color-brand-text: #64748B;
+}
+
+@layer base {
+  body {
+    @apply bg-brand-gray text-brand-slate font-sans antialiased;
+  }
+}
+
+@layer utilities {
+  .bg-gradient-pontufy {
+    @apply bg-gradient-to-r from-brand-lavender to-brand-mint;
+  }
+  .text-gradient-pontufy {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-brand-lavender to-brand-mint;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

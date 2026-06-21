@@ -1,0 +1,81 @@
+{
+  "tenant": {
+    "companyName": "TechCorp Solutions",
+    "sector": "Tecnologia e Inovação",
+    "aiCredits": 450,
+    "totalEmployees": 128
+  },
+  "metrics": [
+    {
+      "id": "m1",
+      "title": "Colaboradores Ativos",
+      "value": "94%",
+      "trend": "+5.2% este mês"
+    },
+    {
+      "id": "m2",
+      "title": "Média de Conclusão",
+      "value": "78%",
+      "trend": "+12% este mês"
+    },
+    {
+      "id": "m3",
+      "title": "Pontos Resgatados",
+      "value": "124k",
+      "trend": "32 prêmios entregues"
+    }
+  ],
+  "aiCourses": [
+    {
+      "id": "c1",
+      "title": "Cibersegurança Básica B2B",
+      "status": "Publicado",
+      "enrolled": 110,
+      "date": "10/06/2026"
+    },
+    {
+      "id": "c2",
+      "title": "Liderança na Era da IA",
+      "status": "Publicado",
+      "enrolled": 45,
+      "date": "15/06/2026"
+    },
+    {
+      "id": "c3",
+      "title": "Comunicação Assíncrona Eficiente",
+      "status": "Rascunho",
+      "enrolled": 0,
+      "date": "21/06/2026"
+    }
+  ],
+  "catalog": [
+    {
+      "id": "p1",
+      "title": "Fone de Ouvido Bluetooth Premium",
+      "partner": "Amazon",
+      "points": 1200,
+      "active": true
+    },
+    {
+      "id": "p2",
+      "title": "Cupom R$ 50",
+      "partner": "Magalu",
+      "points": 800,
+      "active": true
+    },
+    {
+      "id": "p3",
+      "title": "Cadeira de Escritório Ergonômica",
+      "partner": "Mercado Livre",
+      "points": 3500,
+      "active": false
+    },
+    {
+      "id": "p4",
+      "title": "Smartwatch Fitness",
+      "partner": "Amazon",
+      "points": 2100,
+      "active": true
+    }
+  ]
+}
