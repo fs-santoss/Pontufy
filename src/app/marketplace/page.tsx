@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import Navbar from '@/components/layout/Navbar';
+
 import PromoBanner from '@/components/marketplace/PromoBanner';
 import CategoryFilter from '@/components/marketplace/CategoryFilter';
 import ProductGrid from '@/components/marketplace/ProductGrid';
@@ -31,8 +31,7 @@ export default function MarketplacePage() {
   };
 
   return (
-    <main className="min-h-screen bg-brand-gray pb-20 pt-24">
-      <Navbar />
+    <main className="pb-20 pt-8">
       {/* Navbar uses global state, updating dynamically */}
       
       <div className="max-w-[1600px] mx-auto">

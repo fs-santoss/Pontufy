@@ -17,8 +17,8 @@ export default function CourseRow({ title, courses }: { title: string, courses: 
                 alt={course.title} 
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-brand-slate/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <PlayCircle size={48} className="text-white" />
+              <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/80 to-emerald-400/80 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                <PlayCircle size={48} className="text-white drop-shadow-md" />
               </div>
               
               {/* Progress Bar (if exists) */}

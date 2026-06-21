@@ -1,4 +1,4 @@
-import Navbar from '@/components/layout/Navbar';
+
 import BalanceCard from '@/components/wallet/BalanceCard';
 import PointsHistory from '@/components/wallet/PointsHistory';
 import BadgesGallery from '@/components/wallet/BadgesGallery';
@@ -8,8 +8,8 @@ export default function WalletPage() {
   const { user, pointsHistory, badges } = walletData;
 
   return (
-    <main className="min-h-screen bg-brand-gray pb-20 pt-24">
-      <Navbar />
+    <main className="pb-20 pt-8">
+
       
       <div className="max-w-[1000px] mx-auto px-6 md:px-8">
         <header className="mb-8">

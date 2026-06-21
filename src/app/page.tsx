@@ -1,5 +1,5 @@
 'use client';
-import Navbar from '@/components/layout/Navbar';
+
 import HeroCourse from '@/components/dashboard/HeroCourse';
 import CourseRow from '@/components/dashboard/CourseRow';
 import RewardRow from '@/components/dashboard/RewardRow';
@@ -16,21 +16,17 @@ export default function Home() {
   const rewardsToDisplay = dynamicRewards?.length ? dynamicRewards.slice(0, 4) : rewardsAlmostThere;
 
   return (
-    <main className="min-h-screen bg-brand-gray pb-20">
-      <Navbar />
+    <main className="min-h-screen pb-20 bg-[#F8F9FA] text-slate-800">
+
       <SurpriseRewardToast />
       
       {/* Hero Section */}
       <HeroCourse course={heroCourse} />
       
       {/* Rest of the Dashboard */}
-      <div className="relative z-20 -mt-10">
-        <CourseRow title="Continuar de onde parou" courses={coursesToDisplay} />
-        
-        {/* Marketplace Preview inside Dashboard */}
-        <RewardRow title="Recompensas a um passo de você" rewards={rewardsToDisplay} />
-        
-        <CourseRow title="Recomendados para seu cargo" courses={recommendedRoles} />
+      <div className="relative z-20 -mt-10 space-y-12">
+        <CourseRow title="Trilhas Recomendadas pela IA" courses={recommendedRoles} />
+        <CourseRow title="Continue de onde parou" courses={coursesToDisplay} />
       </div>
     </main>
   );
