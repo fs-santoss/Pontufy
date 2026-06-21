@@ -51,6 +51,11 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error("Erro ao completar aula:", error);
+    
+    if (error.message === 'Não autenticado.') {
+      return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+    }
+
     return NextResponse.json(
       { error: error.message || "Falha interna no servidor ao concluir aula." }, 
       { status: 500 }
