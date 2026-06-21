@@ -1,3 +1,4 @@
+'use client';
 import { Search, Bell, User, Coins } from 'lucide-react';
 import Link from 'next/link';
 import { useStore } from '@/store/useStore';

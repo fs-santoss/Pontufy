@@ -1,4 +1,4 @@
-import NextAuth, { DefaultSession, DefaultUser } from 'next-auth';
+import NextAuth, { type DefaultSession, type User } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { prisma } from '@/backend/db';
 import { authConfig } from '@/auth.config';
@@ -12,7 +12,7 @@ declare module "next-auth" {
     } & DefaultSession["user"];
   }
 
-  interface User extends DefaultUser {
+  interface User {
     tenantId: string;
     role: string;
   }
