@@ -7,7 +7,7 @@ import MetricCard from '@/components/admin/MetricCard';
 import AISelectionTable from '@/components/admin/AISelectionTable';
 import RewardToggleRow from '@/components/admin/RewardToggleRow';
 import AnalyticsDashboard from '@/components/admin/AnalyticsDashboard';
-import { LayoutDashboard, LogOut, Settings, Sparkles, Loader2, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, LogOut, Sparkles, Loader2, BarChart3, ArrowLeft } from 'lucide-react';
 
 type AdminView = 'overview' | 'analytics';
 
@@ -123,7 +123,13 @@ export default function AdminDashboardClient() {
             <Sparkles size={20} /> IA Cursos
           </Link>
         </nav>
-        <div className="p-4 border-t border-gray-700">
+        <div className="p-4 border-t border-gray-700 flex flex-col gap-2">
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-3 text-left w-full px-4 py-3 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors font-semibold"
+          >
+            <ArrowLeft size={20} /> Visão do Colaborador
+          </Link>
           <button
             type="button"
             onClick={() => signOut({ callbackUrl: '/login' })}

@@ -1,6 +1,6 @@
 'use client';
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Search, Bell, User, Coins, LogOut, Settings } from 'lucide-react';
+import { Search, Bell, User, Coins, LogOut, Settings, ShieldCheck, LayoutDashboard } from 'lucide-react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { useStore } from '@/store/useStore';
@@ -44,6 +44,24 @@ export default function Navbar() {
           <Link href="/dashboard" className="text-brand-slate transition-colors hover:text-emerald-500">Página Inicial</Link>
           <Link href="/cursos" className="transition-colors hover:text-emerald-500">Meus Cursos/Trilhas</Link>
           <Link href="/loja" className="transition-colors hover:text-emerald-500">Clube de Benefícios</Link>
+          {session?.user?.role === 'admin_rh' && (
+            <Link
+              href="/admin"
+              className="flex items-center gap-1.5 text-emerald-700 font-bold transition-colors hover:text-emerald-500"
+            >
+              <LayoutDashboard size={15} />
+              Painel RH
+            </Link>
+          )}
+          {session?.user?.role === 'super_admin' && (
+            <Link
+              href="/superadmin"
+              className="flex items-center gap-1.5 text-violet-700 font-bold transition-colors hover:text-violet-500"
+            >
+              <ShieldCheck size={15} />
+              Console
+            </Link>
+          )}
         </div>
       </div>
 

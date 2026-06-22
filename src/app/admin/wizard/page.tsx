@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { signOut } from 'next-auth/react';
 import AIWizard from '@/components/admin/AIWizard';
-import { LayoutDashboard, LogOut, Sparkles, ArrowLeft } from 'lucide-react';
+import { LayoutDashboard, LogOut, Sparkles, ArrowLeft, Users } from 'lucide-react';
 import Link from 'next/link';
 
 export default function WizardPage() {
@@ -40,7 +40,13 @@ export default function WizardPage() {
             <Sparkles size={20} /> IA Cursos
           </Link>
         </nav>
-        <div className="p-4 border-t border-gray-700">
+        <div className="p-4 border-t border-gray-700 flex flex-col gap-2">
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-3 text-left w-full px-4 py-3 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors font-semibold"
+          >
+            <Users size={20} /> Visão do Colaborador
+          </Link>
           <button
             type="button"
             onClick={() => signOut({ callbackUrl: '/login' })}
