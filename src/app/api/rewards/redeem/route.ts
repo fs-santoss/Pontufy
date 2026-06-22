@@ -1,76 +1,153 @@
 import { NextResponse } from 'next/server';
 import { getSessionContext } from '@/backend/session';
 import { getTenantDb } from '@/backend/db';
+import { createAffiliateLink } from '@/lib/lomadee';
+import { logAudit, extractRequestMeta } from '@/lib/audit';
 
 export async function POST(request: Request) {
   try {
     const { tenantId, userId } = await getSessionContext();
-    const { rewardId } = await request.json();
+    const body = await request.json();
+    const { rewardId, productUrl } = body;
 
-    if (!rewardId) return NextResponse.json({ error: "rewardId é obrigatório" }, { status: 400 });
+    if (!rewardId && !productUrl) {
+      return NextResponse.json({ error: 'rewardId ou productUrl é obrigatório.' }, { status: 400 });
+    }
 
     const db = getTenantDb(tenantId);
 
-    // 1. Busca os detalhes da recompensa
-    // A extensão Prisma garante que se for um prêmio específico de outro tenant, ele não será encontrado
-    const reward = await db.reward.findUnique({
-      where: { id: rewardId }
-    });
+    if (rewardId) {
+      const reward = await db.reward.findUnique({ where: { id: rewardId } });
 
-    if (!reward || !reward.isActive) {
-      return NextResponse.json({ error: "Recompensa indisponível ou inativa." }, { status: 404 });
-    }
+      if (!reward || !reward.isActive) {
+        return NextResponse.json({ error: 'Recompensa indisponível ou inativa.' }, { status: 404 });
+      }
 
-    // 2. Busca o saldo do usuário atual
-    const user = await db.user.findUnique({
-      where: { id: userId }
-    });
+      const user = await db.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        return NextResponse.json({ error: 'Usuário não encontrado.' }, { status: 404 });
+      }
 
-    if (!user) return NextResponse.json({ error: "Usuário não encontrado." }, { status: 404 });
+      if (user.pointsBalance < reward.pricePoints) {
+        return NextResponse.json({
+          error: 'Saldo insuficiente.',
+          missing: reward.pricePoints - user.pointsBalance,
+        }, { status: 400 });
+      }
 
-    // 3. Validação de Regra de Negócio (Saldo suficiente?)
-    if (user.pointsBalance < reward.pricePoints) {
-      return NextResponse.json({ 
-        error: "Saldo insuficiente.", 
-        missing: reward.pricePoints - user.pointsBalance 
-      }, { status: 400 });
-    }
+      const result = await db.$transaction(async (tx: any) => {
+        const updatedUser = await tx.user.update({
+          where: { id: userId },
+          data: { pointsBalance: { decrement: reward.pricePoints } },
+        });
 
-    // 4. Transação Atômica: Deduz saldo, gera log negativo e retorna o link
-    const result = await db.$transaction(async (tx: any) => {
-      // Debita os pontos
-      const updatedUser = await tx.user.update({
-        where: { id: userId },
-        data: { pointsBalance: { decrement: reward.pricePoints } }
+        await tx.pointsLedger.create({
+          data: {
+            userId,
+            tenantId,
+            type: 'loss',
+            pointsAmount: reward.pricePoints,
+            description: `Resgate: ${reward.title}`,
+          },
+        });
+
+        return updatedUser;
       });
 
-      // Registra a saída no extrato
-      await tx.pointsLedger.create({
-        data: {
-          userId,
-          tenantId,
-          type: 'loss',
-          pointsAmount: reward.pricePoints,
-          description: `Resgate: ${reward.title}`,
-        },
+      let affiliateUrl: string;
+      try {
+        affiliateUrl = await createAffiliateLink(reward.affiliateLink);
+      } catch {
+        const trackingId = `${tenantId}:${userId}:${Date.now()}`;
+        affiliateUrl = `${reward.affiliateLink}${reward.affiliateLink.includes('?') ? '&' : '?'}trackingId=${trackingId}`;
+      }
+
+      const meta = extractRequestMeta(request);
+      await logAudit({
+        tenantId,
+        userId,
+        action: 'REWARD_REDEEMED',
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+        previousValues: { pointsBalance: user.pointsBalance },
+        newValues: { pointsBalance: result.pointsBalance, rewardId, rewardTitle: reward.title },
       });
 
-      return updatedUser;
-    });
+      return NextResponse.json({
+        success: true,
+        message: 'Resgate concluído com sucesso!',
+        newBalance: result.pointsBalance,
+        affiliateUrl,
+      });
+    }
 
-    // Em um fluxo real B2B2C, aqui o backend injetaria o tracking ID único no affiliateLink
-    const trackingId = `${tenantId}:${userId}:${Date.now()}`;
-    const urlWithTracking = `${reward.affiliateLink}?trackingId=${trackingId}`;
+    // Lomadee direct product URL redemption (from search results)
+    if (productUrl) {
+      const pointsCost = body.pointsCost || 0;
 
-    return NextResponse.json({ 
-      success: true, 
-      message: "Resgate concluído com sucesso!",
-      newBalance: result.pointsBalance,
-      affiliateUrl: urlWithTracking
-    });
+      if (pointsCost > 0) {
+        const user = await db.user.findUnique({ where: { id: userId } });
+        if (!user) {
+          return NextResponse.json({ error: 'Usuário não encontrado.' }, { status: 404 });
+        }
 
+        if (user.pointsBalance < pointsCost) {
+          return NextResponse.json({
+            error: 'Saldo insuficiente.',
+            missing: pointsCost - user.pointsBalance,
+          }, { status: 400 });
+        }
+
+        const result = await db.$transaction(async (tx: any) => {
+          const updatedUser = await tx.user.update({
+            where: { id: userId },
+            data: { pointsBalance: { decrement: pointsCost } },
+          });
+
+          await tx.pointsLedger.create({
+            data: {
+              userId,
+              tenantId,
+              type: 'loss',
+              pointsAmount: pointsCost,
+              description: `Resgate Lomadee: ${body.productTitle || productUrl}`,
+            },
+          });
+
+          return updatedUser;
+        });
+
+        let affiliateUrl: string;
+        try {
+          affiliateUrl = await createAffiliateLink(productUrl);
+        } catch {
+          affiliateUrl = productUrl;
+        }
+
+        return NextResponse.json({
+          success: true,
+          message: 'Resgate concluído!',
+          newBalance: result.pointsBalance,
+          affiliateUrl,
+        });
+      }
+
+      // Zero-cost link generation (browsing only)
+      try {
+        const affiliateUrl = await createAffiliateLink(productUrl);
+        return NextResponse.json({ success: true, affiliateUrl });
+      } catch (error) {
+        console.error('Lomadee link creation failed:', error);
+        return NextResponse.json({ error: 'Falha ao gerar link de afiliado.' }, { status: 502 });
+      }
+    }
+
+    return NextResponse.json({ error: 'Requisição inválida.' }, { status: 400 });
   } catch (error: any) {
-    console.error("Erro no resgate de recompensa:", error);
-    return NextResponse.json({ error: "Falha interna no servidor." }, { status: 500 });
+    if (error.message === 'Não autenticado.') {
+      return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
+    }
+    console.error('POST /api/rewards/redeem:', error);
+    return NextResponse.json({ error: 'Falha interna no servidor.' }, { status: 500 });
   }
 }
