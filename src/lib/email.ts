@@ -35,11 +35,16 @@ async function sendEmail(payload: EmailPayload): Promise<boolean> {
   return true;
 }
 
+function resolveBaseUrl(): string {
+  // Explicit canonical URL wins (already includes protocol).
+  if (process.env.NEXTAUTH_URL) return process.env.NEXTAUTH_URL.replace(/\/$/, '');
+  // Vercel injects the deployment host without a protocol.
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return 'http://localhost:3000';
+}
+
 export async function sendPasswordResetEmail(to: string, token: string): Promise<boolean> {
-  const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : 'http://localhost:3000';
-  const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+  const resetUrl = `${resolveBaseUrl()}/reset-password?token=${token}`;
 
   return sendEmail({
     to,

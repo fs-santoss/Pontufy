@@ -1,9 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Receiver } from '@upstash/qstash';
 import { getTenantDb } from '@/backend/db';
 import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
 import { broadcastToTenant } from '@/app/api/notifications/stream/route';
 import { logAudit } from '@/lib/audit';
+
+/**
+ * Verifies that the request genuinely originates from QStash by validating the
+ * HMAC signature against the configured signing keys. Returns false when the
+ * signature is missing/invalid, or when signing keys are not configured (the
+ * worker has no legitimate caller other than QStash, so it fails closed).
+ */
+async function verifyQStashSignature(req: NextRequest, body: string): Promise<boolean> {
+  const currentSigningKey = process.env.QSTASH_CURRENT_SIGNING_KEY;
+  const nextSigningKey = process.env.QSTASH_NEXT_SIGNING_KEY;
+  const signature = req.headers.get('upstash-signature');
+
+  if (!currentSigningKey || !nextSigningKey || !signature) return false;
+
+  const receiver = new Receiver({ currentSigningKey, nextSigningKey });
+  try {
+    return await receiver.verify({ signature, body });
+  } catch {
+    return false;
+  }
+}
 
 const QuizOptionSchema = z.object({ text: z.string().min(1) });
 const QuizQuestionSchema = z.object({
@@ -122,15 +144,16 @@ function normalizePoints(lessons: { title: string; type: 'text' | 'video'; point
 }
 
 export async function POST(request: NextRequest) {
-  const qstashSignature = request.headers.get('upstash-signature');
-  const qstashToken = process.env.QSTASH_CURRENT_SIGNING_KEY;
+  // Read the raw body once — signature verification needs the exact bytes.
+  const rawBody = await request.text();
 
-  if (qstashToken && !qstashSignature) {
+  const isValid = await verifyQStashSignature(request, rawBody);
+  if (!isValid) {
     return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
   }
 
   try {
-    const { tenantId, prompt, vertical } = await request.json();
+    const { tenantId, prompt, vertical } = JSON.parse(rawBody);
 
     if (!tenantId || !prompt) {
       return NextResponse.json({ error: 'MISSING_FIELDS' }, { status: 400 });

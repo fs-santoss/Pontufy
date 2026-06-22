@@ -11,7 +11,9 @@ export async function POST(request: Request) {
 
     const db = getTenantDb(tenantId);
 
-    const lesson = await db.lesson.findUnique({ where: { id: lessonId } });
+    // findFirst (not findUnique) so the tenant extension can scope through the
+    // parent Course relation — prevents completing lessons from other tenants.
+    const lesson = await db.lesson.findFirst({ where: { id: lessonId } });
     if (!lesson) {
       return NextResponse.json({ error: 'Aula não encontrada no escopo da empresa.' }, { status: 404 });
     }

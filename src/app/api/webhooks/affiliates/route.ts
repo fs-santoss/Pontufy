@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import { prisma } from '@/backend/db';
 
 const WEBHOOK_SECRET = process.env.AFFILIATE_WEBHOOK_SECRET || '';
+
+function constantTimeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, 'utf8');
+  const bufB = Buffer.from(b, 'utf8');
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
 
 async function verifyHmac(payload: string, signature: string, secret: string): Promise<boolean> {
   if (!secret || !signature) return false;
@@ -17,7 +25,7 @@ async function verifyHmac(payload: string, signature: string, secret: string): P
   const expected = Array.from(new Uint8Array(sig))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
-  return expected === signature;
+  return constantTimeEqual(expected, signature);
 }
 
 interface AffiliatePayload {

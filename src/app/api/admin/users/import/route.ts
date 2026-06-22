@@ -72,9 +72,6 @@ export async function POST(request: Request) {
     });
     const existingEmails = new Set(existingUsers.map((u) => u.email));
 
-    const tempPassword = randomBytes(8).toString('hex');
-    const passwordHash = await hashPassword(tempPassword);
-
     const toCreate = rows.filter((r) => !existingEmails.has(r.email));
 
     let created = 0;
@@ -82,6 +79,10 @@ export async function POST(request: Request) {
 
     for (const r of toCreate) {
       try {
+        // Each user gets a UNIQUE, unguessable, unusable password hash. They set
+        // a real password via the "forgot password" flow (emailed reset link),
+        // so no shared/plaintext credential is ever issued or exposed.
+        const passwordHash = await hashPassword(randomBytes(32).toString('hex'));
         await prisma.user.create({
           data: {
             tenantId,
@@ -115,7 +116,6 @@ export async function POST(request: Request) {
         total: rows.length,
         created,
         skipped,
-        tempPassword,
       },
     });
   } catch (error: any) {

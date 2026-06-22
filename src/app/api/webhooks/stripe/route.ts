@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { randomBytes, scrypt } from 'crypto';
+import { randomBytes, scrypt, timingSafeEqual } from 'crypto';
 import { promisify } from 'util';
 import { prisma } from '@/backend/db';
 import { logAudit } from '@/lib/audit';
-import { sendWelcomeEmail } from '@/lib/email';
+import { sendWelcomeEmail, sendPasswordResetEmail } from '@/lib/email';
 
 const scryptAsync = promisify(scrypt);
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
+// Reject signatures whose timestamp is older than this to blunt replay attacks.
+const SIGNATURE_TOLERANCE_SECONDS = 300;
+
+function constantTimeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, 'utf8');
+  const bufB = Buffer.from(b, 'utf8');
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
 
 async function verifyStripeSignature(
   body: string,
@@ -23,6 +32,12 @@ async function verifyStripeSignature(
   const timestamp = tsEntry.slice(2);
   const expectedSig = v1Entry.slice(3);
 
+  // Replay protection: reject stale or non-numeric timestamps.
+  const ts = parseInt(timestamp, 10);
+  if (!Number.isFinite(ts)) return false;
+  const ageSeconds = Math.abs(Date.now() / 1000 - ts);
+  if (ageSeconds > SIGNATURE_TOLERANCE_SECONDS) return false;
+
   const payload = `${timestamp}.${body}`;
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
@@ -37,7 +52,7 @@ async function verifyStripeSignature(
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
 
-  return computed === expectedSig;
+  return constantTimeEqual(computed, expectedSig);
 }
 
 async function hashPassword(password: string): Promise<string> {
@@ -90,9 +105,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, message: 'TENANT_EXISTS', tenantId: existingTenant.id });
     }
 
-    const tempPassword = randomBytes(8).toString('hex');
-    const passwordHash = await hashPassword(tempPassword);
+    // The admin sets their own password via a one-time setup link — we never
+    // generate, store, or transmit a plaintext temporary password.
+    const unusablePassword = await hashPassword(randomBytes(32).toString('hex'));
     const aiCredits = DEFAULT_CREDITS[plan] || DEFAULT_CREDITS.starter;
+    const setupToken = randomBytes(32).toString('hex');
+    const setupExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     const result = await prisma.$transaction(async (tx) => {
       const tenant = await tx.tenant.create({
@@ -110,9 +128,13 @@ export async function POST(request: NextRequest) {
           name: `Admin ${companyName}`,
           email,
           role: 'admin_rh',
-          passwordHash,
+          passwordHash: unusablePassword,
           pointsBalance: 0,
         },
+      });
+
+      await tx.passwordReset.create({
+        data: { userId: admin.id, token: setupToken, expiresAt: setupExpiresAt },
       });
 
       return { tenant, admin };
@@ -132,12 +154,13 @@ export async function POST(request: NextRequest) {
     });
 
     await sendWelcomeEmail(email, `Admin ${companyName}`);
+    // Deliver the password-setup link out-of-band (email), never in the response.
+    await sendPasswordResetEmail(email, setupToken);
 
     return NextResponse.json({
       success: true,
       tenantId: result.tenant.id,
       adminEmail: email,
-      tempPassword,
     });
   } catch (error) {
     console.error('POST /api/webhooks/stripe:', error);

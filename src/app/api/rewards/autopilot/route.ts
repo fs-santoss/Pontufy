@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getSessionContext } from '@/backend/session';
-import { prisma } from '@/backend/db';
+import { prisma, getTenantDb } from '@/backend/db';
 import { GoogleGenAI, Type, Schema } from '@google/genai';
 
 export async function POST(request: Request) {
   try {
-    // Auth required — userId comes from the verified JWT, never from the request body
-    const { userId } = await getSessionContext();
+    // Auth required — userId/tenantId come from the verified JWT, never the body
+    const { userId, tenantId } = await getSessionContext();
+    const db = getTenantDb(tenantId);
 
     const recentGains = await prisma.pointsLedger.findMany({
       where: { userId, type: 'gain' },
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
         ? recentGains.map(g => `- Ganhou ${g.pointsAmount} pts: ${g.description}`).join('\n')
         : 'Usuário novo ou sem atividades recentes.';
 
-    const availableRewards = await prisma.reward.findMany({
+    const availableRewards = await db.reward.findMany({
       where: { isActive: true },
       take: 5,
     });

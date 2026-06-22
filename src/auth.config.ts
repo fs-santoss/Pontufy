@@ -1,6 +1,15 @@
 import type { NextAuthConfig } from 'next-auth';
 import { createHash } from 'crypto';
 
+// In production AUTH_SECRET is mandatory: a missing secret would silently fall
+// back to a publicly-derivable value, letting anyone forge session JWTs and
+// impersonate any user/role/tenant. Fail closed instead of booting insecurely.
+if (!process.env.AUTH_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error(
+    'AUTH_SECRET is required in production. Generate one with `openssl rand -base64 32` and set it as an environment variable.',
+  );
+}
+
 const authSecret =
   process.env.AUTH_SECRET ||
   createHash('sha256').update('pontufy-dev-secret-replace-in-production').digest('base64');
