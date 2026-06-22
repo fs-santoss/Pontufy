@@ -3,6 +3,8 @@ import { getSessionContext } from '@/backend/session';
 import { getTenantDb } from '@/backend/db';
 import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
+import { rateLimitCheck } from '@/lib/redis';
+import { broadcastToTenant } from '@/app/api/notifications/stream/route';
 
 // ── Zod Schema: Tipagem rígida do output da IA ──────────────────────────────
 const QuizOptionSchema = z.object({
@@ -204,6 +206,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Acesso Negado: Apenas Gestores de RH.' }, { status: 403 });
     }
 
+    const MAX_GENERATIONS_PER_DAY = 10;
+    const rateLimit = await rateLimitCheck(
+      `ratelimit:generate:${tenantId}`,
+      MAX_GENERATIONS_PER_DAY,
+      86400,
+    );
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: `Limite de ${MAX_GENERATIONS_PER_DAY} gerações por dia atingido. Tente novamente em ${Math.ceil(rateLimit.resetIn / 3600)}h.` },
+        { status: 429 },
+      );
+    }
+
     const { prompt, vertical } = await request.json();
     if (!prompt) {
       return NextResponse.json({ error: 'O campo prompt é obrigatório.' }, { status: 400 });
@@ -280,6 +296,12 @@ export async function POST(request: Request) {
         },
         include: { lessons: true },
       });
+    });
+
+    broadcastToTenant(tenantId, 'course_created', {
+      courseId: newCourse.id,
+      title: newCourse.title,
+      lessonsCount: newCourse.lessons.length,
     });
 
     return NextResponse.json({ success: true, course: newCourse });
