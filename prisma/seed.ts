@@ -45,6 +45,22 @@ async function main() {
   });
   console.log(`Upserted User (Admin): ${hrAdmin.name}`);
 
+  const admin2Hash = await hashPassword('123456');
+  const admin2 = await prisma.user.upsert({
+    where: { email: 'admin@alpha.com' },
+    update: { passwordHash: admin2Hash },
+    create: {
+      id: 'user-admin-002',
+      tenantId: tenant.id,
+      name: 'Admin Alpha',
+      email: 'admin@alpha.com',
+      role: 'admin_rh',
+      pointsBalance: 0,
+      passwordHash: admin2Hash,
+    },
+  });
+  console.log(`Upserted User (Admin 2): ${admin2.name}`);
+
   const empHash = await hashPassword('123456');
   const employee = await prisma.user.upsert({
     where: { email: 'joao@empresaalpha.com' },
@@ -60,6 +76,38 @@ async function main() {
     },
   });
   console.log(`Upserted User (Employee): ${employee.name}`);
+
+  const emp2Hash = await hashPassword('123456');
+  const employee2 = await prisma.user.upsert({
+    where: { email: 'user@alpha.com' },
+    update: { passwordHash: emp2Hash },
+    create: {
+      id: 'user-emp-003',
+      tenantId: tenant.id,
+      name: 'Employee Alpha',
+      email: 'user@alpha.com',
+      role: 'employee',
+      pointsBalance: 200,
+      passwordHash: emp2Hash,
+    },
+  });
+  console.log(`Upserted User (Employee 2): ${employee2.name}`);
+
+  const guestHash = await hashPassword('123456');
+  const guest = await prisma.user.upsert({
+    where: { email: 'guest@alpha.com' },
+    update: { passwordHash: guestHash },
+    create: {
+      id: 'user-guest-001',
+      tenantId: tenant.id,
+      name: 'Guest Alpha',
+      email: 'guest@alpha.com',
+      role: 'guest',
+      pointsBalance: 0,
+      passwordHash: guestHash,
+    },
+  });
+  console.log(`Upserted User (Guest): ${guest.name}`);
 
   // 3. Courses + Lessons
   const course1 = await prisma.course.upsert({
