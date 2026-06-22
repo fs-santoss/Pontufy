@@ -68,3 +68,5 @@ export function getTenantPrisma(tenantId: string) {
     },
   });
 }
+
+export const getTenantDb = getTenantPrisma;
