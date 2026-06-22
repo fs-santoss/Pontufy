@@ -120,7 +120,7 @@ export default function AIWizard() {
             />
           </div>
 
-          <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4 border-t border-gray-100">
             <div className="flex items-center gap-2 text-sm">
               <span className="text-brand-text">Custo da operação:</span>
               <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
@@ -130,7 +130,7 @@ export default function AIWizard() {
 
             <button
               onClick={handleGenerate}
-              className={`flex items-center gap-2 font-bold px-8 py-3 rounded-lg shadow-sm transition-all ${
+              className={`flex items-center justify-center gap-2 font-bold px-8 py-3 rounded-lg shadow-sm transition-all ${
                 prompt.trim()
                   ? 'bg-gradient-pontufy text-emerald-900 hover:shadow-md hover:scale-[1.02]'
                   : 'bg-gray-100 text-gray-400 cursor-not-allowed'
@@ -146,7 +146,7 @@ export default function AIWizard() {
 
   if (step === 2) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center animate-[fadeIn_0.3s_ease-out]">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 sm:p-12 text-center animate-[fadeIn_0.3s_ease-out]">
         <div className="w-16 h-16 bg-gradient-pontufy rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-100 animate-pulse">
           <Sparkles className="text-emerald-900" size={32} />
         </div>

@@ -116,26 +116,26 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
   };
 
   return (
-    <div className="flex flex-col overflow-hidden h-full">
+    <div className="flex flex-col lg:overflow-hidden lg:h-full">
       <PointsCelebration
         points={earnedPoints}
         isVisible={showCelebration}
         onComplete={() => setShowCelebration(false)}
       />
 
-      <div className="flex-1 flex h-[calc(100vh-72px)]">
-        <div className="flex-1 flex flex-col bg-white relative">
+      <div className="flex-1 flex flex-col lg:flex-row lg:h-[calc(100vh-72px)]">
+        <div className="flex-1 flex flex-col bg-white relative min-w-0">
           <div className="absolute top-4 left-4 z-50">
-            <Link href="/dashboard" className="flex items-center gap-2 bg-black/60 hover:bg-black/80 text-white px-4 py-2 rounded-full backdrop-blur-md text-sm font-bold transition-all shadow-lg">
+            <Link href="/dashboard" className="flex items-center gap-2 bg-black/60 hover:bg-black/80 text-white px-3 py-2 sm:px-4 rounded-full backdrop-blur-md text-xs sm:text-sm font-bold transition-all shadow-lg">
               ← Voltar para Início
             </Link>
           </div>
-          <div className="h-[60%] lg:h-[70%]">
+          <div className="aspect-video lg:aspect-auto lg:h-[70%]">
             <VideoPlayer lesson={activeLesson} onComplete={handleLessonComplete} />
           </div>
 
-          <div className="flex-1 p-8 overflow-y-auto">
-            <h1 className="text-3xl font-extrabold text-brand-slate mb-4">{activeLesson.title}</h1>
+          <div className="flex-1 p-5 sm:p-8 lg:overflow-y-auto">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-brand-slate mb-4">{activeLesson.title}</h1>
             <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
               {(['overview', 'notes', 'materials'] as const).map((tab) => {
                 const labels = { overview: 'Visão Geral', notes: 'Anotações', materials: 'Materiais' };
@@ -207,7 +207,7 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
 
-        <div className="w-[350px] lg:w-[400px] h-full shrink-0">
+        <div className="w-full lg:w-[360px] xl:w-[400px] lg:h-full shrink-0 border-t lg:border-t-0 border-gray-100">
           <SidebarModules
             lessons={lessons}
             activeLesson={activeLesson}
