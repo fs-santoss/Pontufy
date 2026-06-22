@@ -1,8 +1,27 @@
 import { PrismaClient } from '@prisma/client';
 import { resolve } from 'path';
+import { existsSync, copyFileSync, mkdirSync } from 'fs';
 
-if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = `file:${resolve(process.cwd(), 'prisma/dev.db')}`;
+function resolveDatabaseUrl(): string {
+  if (process.env.DATABASE_URL && !process.env.DATABASE_URL.startsWith('file:')) {
+    return process.env.DATABASE_URL;
+  }
+
+  const bundledDb = resolve(process.cwd(), 'prisma/dev.db');
+
+  if (process.env.VERCEL) {
+    const tmpDb = '/tmp/dev.db';
+    if (!existsSync(tmpDb) && existsSync(bundledDb)) {
+      copyFileSync(bundledDb, tmpDb);
+    }
+    return `file:${tmpDb}`;
+  }
+
+  return `file:${bundledDb}`;
+}
+
+if (!process.env.DATABASE_URL || process.env.DATABASE_URL === 'file:./dev.db') {
+  process.env.DATABASE_URL = resolveDatabaseUrl();
 }
 
 const globalForPrisma = globalThis as unknown as {
