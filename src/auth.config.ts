@@ -1,6 +1,12 @@
 import type { NextAuthConfig } from 'next-auth';
+import { createHash } from 'crypto';
+
+const authSecret =
+  process.env.AUTH_SECRET ||
+  createHash('sha256').update('pontufy-dev-secret-replace-in-production').digest('base64');
 
 export const authConfig = {
+  secret: authSecret,
   trustHost: true,
   providers: [],
   callbacks: {

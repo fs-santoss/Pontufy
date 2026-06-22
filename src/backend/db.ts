@@ -1,4 +1,9 @@
 import { PrismaClient } from '@prisma/client';
+import { resolve } from 'path';
+
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = `file:${resolve(process.cwd(), 'prisma/dev.db')}`;
+}
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;

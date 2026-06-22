@@ -14,6 +14,9 @@ export async function GET(request: Request) {
 
     return NextResponse.json(rewards);
   } catch (error: any) {
+    if (error.message === 'Não autenticado.') {
+      return NextResponse.json([], { status: 401 });
+    }
     console.error('GET /api/rewards:', error);
     return NextResponse.json([], { status: 500 });
   }

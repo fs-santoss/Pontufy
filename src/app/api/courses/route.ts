@@ -15,6 +15,9 @@ export async function GET(request: Request) {
 
     return NextResponse.json(courses);
   } catch (error: any) {
+    if (error.message === 'Não autenticado.') {
+      return NextResponse.json([], { status: 401 });
+    }
     console.error('GET /api/courses:', error);
     return NextResponse.json([], { status: 500 });
   }
