@@ -58,6 +58,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!isValid) return null;
 
+        // Super admins must originate from the @pontufy.com domain.
+        if (user.role === 'super_admin' && !user.email.endsWith('@pontufy.com')) {
+          return null;
+        }
+
         return {
           id: user.id,
           email: user.email,
