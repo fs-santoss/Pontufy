@@ -26,13 +26,16 @@ durable database.
 2. **Set environment variables** in Vercel → Settings → Environment Variables
    (Production *and* Preview), see `.env.example`:
 
-   | Variable | Value |
-   |---|---|
-   | `AUTH_SECRET` | `openssl rand -base64 32` — **currently unset; sessions are forgeable until you set this** |
-   | `DATABASE_URL` | the **pooled** connection string (PgBouncer / port 6543) |
-   | `DIRECT_URL` | the **direct** connection string (port 5432) |
+   | Variable | Required? | Value |
+   |---|---|---|
+   | `AUTH_SECRET` | **yes** | `openssl rand -base64 32` — **currently unset; sessions are forgeable until you set this** |
+   | `DATABASE_URL` | **yes** | the **pooled** connection string (PgBouncer / port 6543) |
+   | `DIRECT_URL` | optional | the **direct** connection string (port 5432) |
 
-   With a single non-pooled Postgres, set `DIRECT_URL` equal to `DATABASE_URL`.
+   `DIRECT_URL` is optional: the build (`prisma migrate deploy`) falls back to
+   `DATABASE_URL` when it is unset. Set it only if your `DATABASE_URL` is a
+   transaction-mode pooler that can't run migrations (e.g. Supabase on `:6543`) —
+   then point `DIRECT_URL` at the direct/session endpoint.
 
 ## Deploy
 
