@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getSessionContext } from '@/backend/session';
 import { getTenantDb } from '@/backend/db';
-import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
 import { rateLimitCheck } from '@/lib/redis';
 import { broadcastToTenant } from '@/app/api/notifications/stream/route';
+import {
+  getGeminiClient,
+  getAnthropicClient,
+  getOpenAIClient,
+  getConfiguredProvider,
+  type AIProvider,
+} from '@/lib/ai-clients';
 
 // ── Zod Schema: Tipagem rígida do output da IA ──────────────────────────────
 const QuizOptionSchema = z.object({
@@ -198,6 +204,60 @@ function normalizePoints(
   }
 }
 
+// ── Multi-Provider Generation ──────────────────────────────────────────────
+async function generateWithProvider(
+  provider: AIProvider,
+  prompt: string,
+  vertical: string,
+): Promise<CourseGenerated> {
+  const userMessage = `Vertical: ${vertical || 'tech'}. Prompt do RH: ${prompt}`;
+
+  if (provider === 'gemini') {
+    const ai = getGeminiClient();
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: userMessage,
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+        responseMimeType: 'application/json',
+        responseSchema: GEMINI_RESPONSE_SCHEMA,
+        temperature: 0.6,
+      },
+    });
+    const text = response.text;
+    if (!text) throw new Error('Resposta vazia da IA (Gemini).');
+    return CourseSchema.parse(JSON.parse(text));
+  }
+
+  if (provider === 'anthropic') {
+    const client = getAnthropicClient();
+    const message = await client.messages.create({
+      model: 'claude-opus-4-8',
+      max_tokens: 4096,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: userMessage }],
+    });
+    const block = message.content.find((b) => b.type === 'text');
+    if (!block || block.type !== 'text') throw new Error('Resposta vazia da IA (Anthropic).');
+    return CourseSchema.parse(JSON.parse(block.text));
+  }
+
+  // openai
+  const client = getOpenAIClient();
+  const completion = await client.chat.completions.create({
+    model: 'gpt-4o',
+    temperature: 0.6,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: userMessage },
+    ],
+  });
+  const text = completion.choices[0]?.message?.content;
+  if (!text) throw new Error('Resposta vazia da IA (OpenAI).');
+  return CourseSchema.parse(JSON.parse(text));
+}
+
 // ── Handler Principal ───────────────────────────────────────────────────────
 export async function POST(request: Request) {
   try {
@@ -260,27 +320,19 @@ export async function POST(request: Request) {
 
     // ── Synchronous fallback when QStash not configured ──
     let courseData: CourseGenerated;
-    const apiKey = process.env.GEMINI_API_KEY;
+    let provider: AIProvider | null = null;
 
-    if (!apiKey) {
+    try {
+      provider = getConfiguredProvider();
+    } catch {
+      // No AI provider configured — use static fallback
+    }
+
+    if (!provider) {
       courseData = resolveFallback(vertical);
     } else {
       try {
-        const ai = new GoogleGenAI({ apiKey });
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: `Vertical: ${vertical || 'tech'}. Prompt do RH: ${prompt}`,
-          config: {
-            systemInstruction: SYSTEM_PROMPT,
-            responseMimeType: 'application/json',
-            responseSchema: GEMINI_RESPONSE_SCHEMA,
-            temperature: 0.6,
-          },
-        });
-
-        const text = response.text;
-        if (!text) throw new Error('Resposta vazia da IA.');
-        courseData = CourseSchema.parse(JSON.parse(text));
+        courseData = await generateWithProvider(provider, prompt, vertical);
       } catch {
         courseData = resolveFallback(vertical);
       }
