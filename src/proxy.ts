@@ -4,33 +4,27 @@ import { authConfig } from '@/auth.config';
 
 const { auth } = NextAuth(authConfig);
 
-export default auth((req: any) => {
+export const proxy = auth((req: any) => {
   const isLoggedIn = !!req.auth;
   const { pathname } = req.nextUrl;
 
-  // Public routes: login page and NextAuth internals
-  if (pathname.startsWith('/api/auth')) return null;
+  if (pathname.startsWith('/api/auth')) return;
 
   if (pathname.startsWith('/login')) {
-    // Redirect already-authenticated users away from the login page
     if (isLoggedIn) return NextResponse.redirect(new URL('/dashboard', req.nextUrl));
-    return null;
+    return;
   }
 
-  // All other routes require authentication
   if (!isLoggedIn) {
     return NextResponse.redirect(new URL('/login', req.nextUrl));
   }
 
-  // RBAC: only admin_rh may access /admin
   if (pathname.startsWith('/admin')) {
     const role = req.auth?.user?.role;
     if (role !== 'admin_rh') {
       return NextResponse.redirect(new URL('/dashboard', req.nextUrl));
     }
   }
-
-  return null;
 });
 
 export const config = {
