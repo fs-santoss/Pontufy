@@ -15,6 +15,7 @@ interface Reward {
   pricePoints?: number;
   pointsRequired?: number;
   imageUrl?: string;
+  affiliateLink?: string;
 }
 
 interface CheckoutDrawerProps {
@@ -246,8 +247,9 @@ export default function CheckoutDrawer({
 
                 <div className="mt-auto flex flex-col gap-3">
                   <a
-                    href="#"
+                    href={reward?.affiliateLink || '/loja'}
                     target="_blank"
+                    rel="noopener noreferrer"
                     className="w-full py-3.5 rounded-xl font-bold text-white shadow-md bg-brand-slate hover:bg-black transition-colors flex items-center justify-center gap-2"
                   >
                     Acessar {partner} <ExternalLink size={18} />

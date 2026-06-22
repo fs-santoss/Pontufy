@@ -1,3 +1,4 @@
+'use client';
 import { CheckCircle, PlayCircle, Coins } from 'lucide-react';
 
 interface Lesson {

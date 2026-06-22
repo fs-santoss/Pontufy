@@ -4,7 +4,11 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+// Otimização Preventiva de Conexões em Ambiente Serverless
+// A URL de conexão no schema.prisma.ts DEVE utilizar o connection pooler (PgBouncer/Prisma Accelerate)
+export const prisma = globalForPrisma.prisma ?? new PrismaClient({
+  log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+});
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
@@ -17,7 +21,7 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
  *  - LessonCompletion: scoped via userId; no tenantId column.
  *  - Reward: special OR logic (global + tenant-specific).
  */
-export function getTenantDb(tenantId: string) {
+export function getTenantPrisma(tenantId: string) {
   if (!tenantId) throw new Error('Operação negada: tenantId não fornecido.');
 
   return prisma.$extends({
@@ -33,7 +37,7 @@ export function getTenantDb(tenantId: string) {
           }
 
           if (model === 'Reward') {
-            if (operation === 'findMany' || operation === 'findFirst') {
+            if (operation === 'findMany' || operation === 'findFirst' || operation === 'findUnique') {
               const currentWhere = (args as any).where || {};
               (args as any).where = {
                 ...currentWhere,

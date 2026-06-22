@@ -101,9 +101,9 @@ export default function LoginPage() {
               </div>
 
               <div className="text-sm">
-                <a href="#" className="font-medium text-emerald-600 hover:text-emerald-500">
+                <span className="font-medium text-gray-400 cursor-not-allowed">
                   Esqueceu a senha?
-                </a>
+                </span>
               </div>
             </div>
 

@@ -1,3 +1,4 @@
+'use client';
 import { triggerLessonCompletion } from "@/hooks/useApi";
 
 interface VideoPlayerProps {

@@ -1,3 +1,4 @@
+'use client';
 import { Coins, CheckCircle2 } from 'lucide-react';
 
 interface ProductCardProps {
