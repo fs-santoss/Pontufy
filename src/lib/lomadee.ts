@@ -106,9 +106,29 @@ export async function getCoupons(): Promise<FormattedCoupon[]> {
   }));
 }
 
-export async function createAffiliateLink(productUrl: string): Promise<string> {
+/**
+ * Injects userId as a subId tracking param into a base URL before
+ * sending to Lomadee. Uses the native URL API for safe query manipulation.
+ * Returns the original url unchanged if it is malformed.
+ */
+export function buildTrackedUrl(baseUrl: string, userId: string): string {
+  try {
+    const url = new URL(baseUrl);
+    url.searchParams.set('subId', userId);
+    return url.toString();
+  } catch {
+    return baseUrl;
+  }
+}
+
+export async function createAffiliateLink(
+  productUrl: string,
+  userId?: string,
+): Promise<string> {
+  const trackedUrl = userId ? buildTrackedUrl(productUrl, userId) : productUrl;
+
   const data = await lomadeeFetch<{ links: LomadeeLinkResponse[] }>(
-    `/link/_create?url=${encodeURIComponent(productUrl)}`,
+    `/link/_create?url=${encodeURIComponent(trackedUrl)}`,
   );
 
   if (!data.links || data.links.length === 0) {

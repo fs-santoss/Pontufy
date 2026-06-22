@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSessionContext } from '@/backend/session';
 import { getTenantDb } from '@/backend/db';
-import { createAffiliateLink } from '@/lib/lomadee';
+import { createAffiliateLink, buildTrackedUrl } from '@/lib/lomadee';
 import { logAudit, extractRequestMeta } from '@/lib/audit';
 
 export async function POST(request: Request) {
@@ -56,10 +56,9 @@ export async function POST(request: Request) {
 
       let affiliateUrl: string;
       try {
-        affiliateUrl = await createAffiliateLink(reward.affiliateLink);
+        affiliateUrl = await createAffiliateLink(reward.affiliateLink, userId);
       } catch {
-        const trackingId = `${tenantId}:${userId}:${Date.now()}`;
-        affiliateUrl = `${reward.affiliateLink}${reward.affiliateLink.includes('?') ? '&' : '?'}trackingId=${trackingId}`;
+        affiliateUrl = buildTrackedUrl(reward.affiliateLink, userId);
       }
 
       const meta = extractRequestMeta(request);
@@ -119,9 +118,9 @@ export async function POST(request: Request) {
 
         let affiliateUrl: string;
         try {
-          affiliateUrl = await createAffiliateLink(productUrl);
+          affiliateUrl = await createAffiliateLink(productUrl, userId);
         } catch {
-          affiliateUrl = productUrl;
+          affiliateUrl = buildTrackedUrl(productUrl, userId);
         }
 
         return NextResponse.json({
