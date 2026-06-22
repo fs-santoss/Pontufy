@@ -3,10 +3,10 @@ import { useStore } from '@/store/useStore';
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
-export function useCourses() {
-  return useSWR('/api/courses', fetcher, {
+export function useCourses(page = 1, limit = 12) {
+  return useSWR(`/api/courses?page=${page}&limit=${limit}`, fetcher, {
     revalidateOnFocus: false,
-    fallbackData: [],
+    fallbackData: { data: [], total: 0, page: 1, limit: 12, totalPages: 0 },
   });
 }
 
@@ -21,10 +21,12 @@ export function useEnrolledCourses() {
   });
 }
 
-export function useRewards() {
-  return useSWR('/api/rewards', fetcher, {
+export function useRewards(page = 1, limit = 12, category?: string) {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+  if (category) params.set('category', category);
+  return useSWR(`/api/rewards?${params}`, fetcher, {
     revalidateOnFocus: false,
-    fallbackData: [],
+    fallbackData: { data: [], total: 0, page: 1, limit: 12, totalPages: 0 },
   });
 }
 

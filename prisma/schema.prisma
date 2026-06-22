@@ -42,6 +42,7 @@ model User {
   tenant            Tenant             @relation(fields: [tenantId], references: [id])
   pointsLedger      PointsLedger[]
   lessonCompletions LessonCompletion[]
+  passwordReset     PasswordReset?
 
   @@index([tenantId])
 }
@@ -123,6 +124,19 @@ model Reward {
   tenant          Tenant?  @relation(fields: [tenantId], references: [id])
 
   @@index([tenantId])
+}
+
+model PasswordReset {
+  id        String    @id @default(uuid())
+  userId    String    @unique
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
 }
 
 model Invitation {

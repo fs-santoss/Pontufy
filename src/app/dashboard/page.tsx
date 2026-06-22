@@ -8,10 +8,11 @@ import mockData from '@/data/mock.json';
 import { useCourses } from '@/hooks/useApi';
 
 export default function Home() {
-  const { data: dynamicCourses } = useCourses();
+  const { data: coursesResponse } = useCourses();
+  const dynamicCourses = coursesResponse?.data || [];
 
   const { heroCourse, continueWatching, recommendedRoles } = mockData;
-  const coursesToDisplay = dynamicCourses?.length ? dynamicCourses : continueWatching;
+  const coursesToDisplay = dynamicCourses.length ? dynamicCourses : continueWatching;
 
   const searchQuery = useStore((s) => s.searchQuery);
 

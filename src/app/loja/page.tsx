@@ -12,9 +12,10 @@ import { useRewards } from '@/hooks/useApi';
 export default function MarketplacePage() {
   const { banners, categories, products: mockProducts } = marketplaceData;
   const userPoints = useStore((s) => s.currentPointsBalance);
-  const { data: apiProducts } = useRewards();
+  const { data: rewardsResponse } = useRewards();
+  const apiProducts = rewardsResponse?.data || [];
 
-  const products = apiProducts?.length ? apiProducts : mockProducts;
+  const products = apiProducts.length ? apiProducts : mockProducts;
 
   const [activeCategory, setActiveCategory] = useState('all');
   const [selectedProduct, setSelectedProduct] = useState<any>(null);

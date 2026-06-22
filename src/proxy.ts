@@ -10,7 +10,7 @@ export const proxy = auth((req: any) => {
 
   if (pathname.startsWith('/api/auth')) return;
 
-  if (pathname.startsWith('/login')) {
+  if (pathname.startsWith('/login') || pathname.startsWith('/forgot-password') || pathname.startsWith('/reset-password') || pathname.startsWith('/register')) {
     if (isLoggedIn) return NextResponse.redirect(new URL('/dashboard', req.nextUrl));
     return;
   }
