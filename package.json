@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && DIRECT_URL=\"${DIRECT_URL:-$DATABASE_URL}\" prisma migrate deploy && next build",
+    "build": "prisma generate && node scripts/migrate.mjs && next build",
     "start": "next start",
     "lint": "eslint",
+    "db:migrate": "node scripts/migrate.mjs",
     "db:seed": "tsx prisma/seed.ts"
   },
   "prisma": {

@@ -39,9 +39,21 @@ durable database.
 
 ## Deploy
 
-`npm run build` runs `prisma migrate deploy` automatically, so migrations apply
-on every deploy. The first deploy creates all tables from
-`prisma/migrations/`.
+`npm run build` applies pending migrations (`scripts/migrate.mjs`) and then
+builds. Migration is **fail-soft**: if it can't run (e.g. `DATABASE_URL` is a
+transaction-mode pooler that rejects DDL), the build still succeeds and logs a
+warning instead of failing the deploy.
+
+- **Direct/reachable `DATABASE_URL`** → migrations apply automatically; tables are
+  created on the first deploy. Nothing else to do.
+- **Pooled `DATABASE_URL`** (PgBouncer / Supabase `:6543` / Neon `-pooler`) →
+  set `DIRECT_URL` to the direct (`:5432`) endpoint **or** run the schema once
+  yourself:
+
+  ```bash
+  # against the DIRECT (non-pooled) connection string
+  DATABASE_URL="postgresql://…:5432/db" npm run db:migrate
+  ```
 
 ## Seed (optional demo data)
 
