@@ -1,5 +1,16 @@
 import { PrismaClient } from '@prisma/client';
 
+// PostgreSQL is the only production-viable engine: Vercel serverless gives each
+// instance an ephemeral filesystem, so SQLite loses every write on cold start.
+// DATABASE_URL must be a pooled Postgres endpoint (PgBouncer/Neon/Supabase pooler);
+// DIRECT_URL (used by `prisma migrate`) points at the direct, unpooled endpoint.
+if (!process.env.DATABASE_URL) {
+  console.error(
+    '🔴 DATABASE_URL is not set. Configure a PostgreSQL connection string ' +
+      '(pooled endpoint) before starting the app.',
+  );
+}
+
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
