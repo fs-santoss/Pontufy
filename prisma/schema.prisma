@@ -113,6 +113,8 @@ model Reward {
   title           String
   affiliateLink   String
   pricePoints     Int
+  imageUrl        String?
+  category        String?  // 'tech', 'health', 'home', 'coupons'
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

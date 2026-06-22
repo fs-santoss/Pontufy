@@ -34,6 +34,7 @@ export default function CheckoutDrawer({
 }: CheckoutDrawerProps) {
   const [step, setStep] = useState<CheckoutStep>("confirm");
   const [voucherCode, setVoucherCode] = useState<string>("");
+  const [affiliateUrl, setAffiliateUrl] = useState<string>("");
   const [lastIsOpen, setLastIsOpen] = useState(isOpen);
 
   const price = reward?.pointsRequired || reward?.pricePoints || 0;
@@ -46,6 +47,7 @@ export default function CheckoutDrawer({
     if (isOpen) {
       setStep("confirm");
       setVoucherCode("");
+      setAffiliateUrl("");
     }
   }
 
@@ -58,13 +60,14 @@ export default function CheckoutDrawer({
         throw new Error(response.error || "Falha no resgate");
       }
 
-      // Generate a mock code for the UI
       const mockCode = `PONTUFY-${partner.substring(0, 4).toUpperCase()}-${Math.floor(
         1000 + Math.random() * 9000
       )}`;
       setVoucherCode(mockCode);
+      if (response.affiliateUrl) {
+        setAffiliateUrl(response.affiliateUrl);
+      }
 
-      // Transition to success
       setStep("success");
       
       // Update balance if callback provided
@@ -246,8 +249,9 @@ export default function CheckoutDrawer({
 
                 <div className="mt-auto flex flex-col gap-3">
                   <a
-                    href="#"
+                    href={affiliateUrl || "#"}
                     target="_blank"
+                    rel="noopener noreferrer"
                     className="w-full py-3.5 rounded-xl font-bold text-white shadow-md bg-brand-slate hover:bg-black transition-colors flex items-center justify-center gap-2"
                   >
                     Acessar {partner} <ExternalLink size={18} />

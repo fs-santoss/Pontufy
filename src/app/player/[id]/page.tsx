@@ -1,37 +1,77 @@
 'use client';
-import { useState } from 'react';
+import { useState, use } from 'react';
 import Link from 'next/link';
 
 import VideoPlayer from '@/components/player/VideoPlayer';
 import SidebarModules from '@/components/player/SidebarModules';
 import PointsCelebration from '@/components/gamification/PointsCelebration';
-import { triggerLessonCompletion } from '@/hooks/useApi';
+import { useCourse, triggerLessonCompletion } from '@/hooks/useApi';
+import { Loader2 } from 'lucide-react';
 
-export default function CoursePlayerPage() {
-  const [activeLesson, setActiveLesson] = useState({ 
-    id: 'l1', 
-    title: 'O que é IA Generativa?', 
-    duration: '12 min', 
-    points: 50, 
-    completed: false 
-  });
-  
+interface Lesson {
+  id: string;
+  title: string;
+  type: string;
+  points: number;
+  completed: boolean;
+  contentUrl?: string;
+}
+
+export default function CoursePlayerPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const { data: course, isLoading, mutate } = useCourse(id);
+
+  const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
   const [earnedPoints, setEarnedPoints] = useState(0);
-
   const [isCompleting, setIsCompleting] = useState(false);
+
+  if (isLoading || !course) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-72px)]">
+        <Loader2 className="animate-spin text-emerald-500" size={48} />
+      </div>
+    );
+  }
+
+  if (course.error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-72px)] gap-4">
+        <p className="text-brand-slate text-lg font-semibold">Curso não encontrado.</p>
+        <Link href="/dashboard" className="text-emerald-600 font-bold hover:underline">
+          Voltar ao Dashboard
+        </Link>
+      </div>
+    );
+  }
+
+  const lessons: Lesson[] = course.lessons || [];
+  const activeLesson = lessons.find((l) => l.id === activeLessonId) || lessons[0];
+
+  if (!activeLesson) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-72px)] gap-4">
+        <p className="text-brand-slate text-lg font-semibold">Este curso não possui aulas.</p>
+        <Link href="/dashboard" className="text-emerald-600 font-bold hover:underline">
+          Voltar ao Dashboard
+        </Link>
+      </div>
+    );
+  }
+
+  const completedCount = lessons.filter((l) => l.completed).length;
 
   const handleLessonComplete = async () => {
     if (activeLesson.completed || isCompleting) return;
-    
+
     setIsCompleting(true);
     try {
       const res = await triggerLessonCompletion(activeLesson.id);
-      
+
       if (res.success) {
         setEarnedPoints(activeLesson.points);
         setShowCelebration(true);
-        setActiveLesson(prev => ({ ...prev, completed: true }));
+        mutate();
       } else {
         alert(res.error || 'Erro ao completar a aula.');
       }
@@ -45,16 +85,13 @@ export default function CoursePlayerPage() {
 
   return (
     <div className="flex flex-col overflow-hidden h-full">
-
-      {/* Points Celebration Overlay */}
-      <PointsCelebration 
-        points={earnedPoints} 
-        isVisible={showCelebration} 
-        onComplete={() => setShowCelebration(false)} 
+      <PointsCelebration
+        points={earnedPoints}
+        isVisible={showCelebration}
+        onComplete={() => setShowCelebration(false)}
       />
 
       <div className="flex-1 flex h-[calc(100vh-72px)]">
-        {/* Main Content Area */}
         <div className="flex-1 flex flex-col bg-white relative">
           <div className="absolute top-4 left-4 z-50">
             <Link href="/dashboard" className="flex items-center gap-2 bg-black/60 hover:bg-black/80 text-white px-4 py-2 rounded-full backdrop-blur-md text-sm font-bold transition-all shadow-lg">
@@ -64,7 +101,7 @@ export default function CoursePlayerPage() {
           <div className="h-[60%] lg:h-[70%]">
             <VideoPlayer lesson={activeLesson} onComplete={handleLessonComplete} />
           </div>
-          
+
           <div className="flex-1 p-8 overflow-y-auto">
             <h1 className="text-3xl font-extrabold text-brand-slate mb-4">{activeLesson.title}</h1>
             <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
@@ -73,15 +110,15 @@ export default function CoursePlayerPage() {
               <button className="text-brand-text hover:text-brand-slate font-semibold pb-1">Materiais</button>
             </div>
             <div className="mt-6 text-brand-slate/80 leading-relaxed max-w-3xl">
-              <p>Nesta aula, vamos explorar os conceitos fundamentais da Inteligência Artificial Generativa e como ela se diferencia dos modelos tradicionais. Você aprenderá como essas tecnologias estão remodelando o mercado corporativo.</p>
-              
+              <p>{course.description}</p>
+
               <div className="mt-8">
-                <button 
+                <button
                   onClick={handleLessonComplete}
                   disabled={activeLesson.completed || isCompleting}
                   className={`px-6 py-3 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 ${
-                    activeLesson.completed 
-                      ? 'bg-gray-100 text-gray-500 cursor-not-allowed' 
+                    activeLesson.completed
+                      ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
                       : 'bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-md'
                   }`}
                 >
@@ -92,11 +129,12 @@ export default function CoursePlayerPage() {
           </div>
         </div>
 
-        {/* Udemy-style Sidebar */}
         <div className="w-[350px] lg:w-[400px] h-full shrink-0">
-          <SidebarModules 
-            activeLesson={activeLesson} 
-            onLessonClick={(lesson: any) => setActiveLesson(lesson)} 
+          <SidebarModules
+            lessons={lessons}
+            activeLesson={activeLesson}
+            completedCount={completedCount}
+            onLessonClick={(lesson) => setActiveLessonId(lesson.id)}
           />
         </div>
       </div>

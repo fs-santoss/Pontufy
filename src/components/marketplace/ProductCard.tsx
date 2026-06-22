@@ -6,16 +6,20 @@ interface ProductCardProps {
     title: string;
     imageUrl?: string;
     partner?: string;
-    pointsRequired: number;
+    partnerStore?: string;
+    pointsRequired?: number;
+    pricePoints?: number;
   };
   userPoints: number;
   onRedeem: (product: any) => void;
 }
 
 export default function ProductCard({ product, userPoints, onRedeem }: ProductCardProps) {
-  const canRedeem = userPoints >= product.pointsRequired;
-  const progress = Math.min((userPoints / product.pointsRequired) * 100, 100);
-  const pointsMissing = product.pointsRequired - userPoints;
+  const price = product.pricePoints ?? product.pointsRequired ?? 0;
+  const partner = product.partnerStore ?? product.partner ?? 'Parceiro';
+  const canRedeem = userPoints >= price;
+  const progress = Math.min((userPoints / price) * 100, 100);
+  const pointsMissing = price - userPoints;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col hover:shadow-md transition-shadow">
@@ -27,7 +31,7 @@ export default function ProductCard({ product, userPoints, onRedeem }: ProductCa
           className="max-h-full max-w-full object-contain mix-blend-multiply"
         />
         <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded text-[10px] font-bold text-brand-slate uppercase tracking-wider shadow-sm">
-          No {product.partner}
+          No {partner}
         </div>
       </div>
 
@@ -39,7 +43,7 @@ export default function ProductCard({ product, userPoints, onRedeem }: ProductCa
         
         <div className="flex items-center gap-1.5 text-emerald-600 font-black text-lg mb-4">
           <Coins size={20} />
-          {product.pointsRequired} pts
+          {price} pts
         </div>
 
         {/* Action Area */}

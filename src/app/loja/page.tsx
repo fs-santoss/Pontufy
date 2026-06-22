@@ -10,21 +10,23 @@ import { useStore } from '@/store/useStore';
 import { useRewards } from '@/hooks/useApi';
 
 export default function MarketplacePage() {
-  const { banners, categories } = marketplaceData;
+  const { banners, categories, products: mockProducts } = marketplaceData;
   const userPoints = useStore((s) => s.currentPointsBalance);
-  const { data: products } = useRewards();
-  
+  const { data: apiProducts } = useRewards();
+
+  const products = apiProducts?.length ? apiProducts : mockProducts;
+
   const [activeCategory, setActiveCategory] = useState('all');
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
-  // Filter products
-  const filteredProducts = activeCategory === 'all' 
-    ? products 
-    : products?.filter((p: any) => p.category === activeCategory) || [];
+  const filteredProducts = activeCategory === 'all'
+    ? products
+    : products?.filter((p: any) => (p.category ?? p.partnerStore) === activeCategory) || [];
 
   const handleRedeem = (product: any) => {
-    if (userPoints >= product.pointsRequired) {
+    const price = product.pricePoints ?? product.pointsRequired ?? 0;
+    if (userPoints >= price) {
       setSelectedProduct(product);
       setIsCheckoutOpen(true);
     }

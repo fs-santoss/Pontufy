@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Search, Bell, User, Coins, LogOut, Settings } from 'lucide-react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import Link from 'next/link';
@@ -8,13 +8,19 @@ import { useStore } from '@/store/useStore';
 export default function Navbar() {
   const { data: session, status } = useSession();
   const pointsBalance = useStore((s) => s.currentPointsBalance);
-  
-  // Zustand Global State para busca
-  const searchQuery = useStore((s) => s.searchQuery);
+
   const setSearchQuery = useStore((s) => s.setSearchQuery);
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [localSearch, setLocalSearch] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setLocalSearch(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setSearchQuery(value), 300);
+  }, [setSearchQuery]);
 
   return (
     <nav className="fixed top-0 w-full z-50 transition-all duration-300 bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100 px-6 py-4 flex items-center justify-between">
@@ -24,7 +30,7 @@ export default function Navbar() {
         </Link>
         <div className="hidden md:flex gap-6 text-sm font-medium text-brand-text">
           <Link href="/dashboard" className="text-brand-slate transition-colors hover:text-emerald-500">Página Inicial</Link>
-          <Link href="/dashboard" className="transition-colors hover:text-emerald-500">Meus Cursos/Trilhas</Link>
+          <Link href="/cursos" className="transition-colors hover:text-emerald-500">Meus Cursos/Trilhas</Link>
           <Link href="/loja" className="transition-colors hover:text-emerald-500">Clube de Benefícios</Link>
         </div>
       </div>
@@ -42,8 +48,8 @@ export default function Navbar() {
                  type="text"
                  autoFocus
                  placeholder="Buscar trilhas..."
-                 value={searchQuery}
-                 onChange={(e) => setSearchQuery(e.target.value)}
+                 value={localSearch}
+                 onChange={(e) => handleSearchChange(e.target.value)}
                  className="absolute right-8 w-64 px-4 py-1.5 rounded-full shadow-sm border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
                />
              )}
@@ -75,7 +81,7 @@ export default function Navbar() {
                     <Settings size={16} /> Meu Perfil
                   </Link>
                   <button 
-                    onClick={() => signOut()}
+                    onClick={() => signOut({ callbackUrl: '/login' })}
                     className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
                   >
                     <LogOut size={16} /> Terminar Sessão

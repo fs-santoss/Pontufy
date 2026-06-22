@@ -5,7 +5,9 @@ interface Product {
   title: string;
   imageUrl?: string;
   partner?: string;
-  pointsRequired: number;
+  partnerStore?: string;
+  pointsRequired?: number;
+  pricePoints?: number;
 }
 
 interface ProductGridProps {
