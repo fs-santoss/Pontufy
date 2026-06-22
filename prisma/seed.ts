@@ -1,6 +1,15 @@
 import { PrismaClient } from '@prisma/client';
+import { scrypt, randomBytes } from 'crypto';
+import { promisify } from 'util';
 
 const prisma = new PrismaClient();
+const scryptAsync = promisify(scrypt);
+
+async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16).toString('hex');
+  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${salt}:${buf.toString('hex')}`;
+}
 
 async function main() {
   console.log('Start seeding...');
@@ -19,10 +28,11 @@ async function main() {
   });
   console.log(`Upserted Tenant: ${tenant.name}`);
 
-  // 2. Create Users
+  // 2. Create Users (passwords are hashed with scrypt — default: "123456")
+  const adminHash = await hashPassword('123456');
   const hrAdmin = await prisma.user.upsert({
     where: { email: 'admin@empresaalpha.com' },
-    update: {},
+    update: { passwordHash: adminHash },
     create: {
       id: 'user-admin-001',
       tenantId: tenant.id,
@@ -30,13 +40,15 @@ async function main() {
       email: 'admin@empresaalpha.com',
       role: 'admin_rh',
       pointsBalance: 500,
+      passwordHash: adminHash,
     },
   });
   console.log(`Upserted User (Admin): ${hrAdmin.name}`);
 
+  const empHash = await hashPassword('123456');
   const employee = await prisma.user.upsert({
     where: { email: 'joao@empresaalpha.com' },
-    update: {},
+    update: { passwordHash: empHash },
     create: {
       id: 'user-emp-002',
       tenantId: tenant.id,
@@ -44,6 +56,7 @@ async function main() {
       email: 'joao@empresaalpha.com',
       role: 'employee',
       pointsBalance: 1250,
+      passwordHash: empHash,
     },
   });
   console.log(`Upserted User (Employee): ${employee.name}`);
@@ -51,7 +64,7 @@ async function main() {
   // 3. Create Rewards (Catalog)
   const reward1 = await prisma.reward.create({
     data: {
-      tenantId: tenant.id, // Or null for global rewards
+      tenantId: tenant.id,
       partnerStore: 'amazon',
       title: 'Vale-Presente Amazon R$ 50',
       affiliateLink: 'https://amazon.com.br/vale50',

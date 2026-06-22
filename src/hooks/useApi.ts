@@ -1,32 +1,26 @@
 import useSWR from 'swr';
 import { useStore } from '@/store/useStore';
 
-// ── Generic Fetcher ─────────────────────────────────────────────────────────
-const fetcher = (url: string) => fetch(url).then(r => r.json());
-
-// ── Data Fetching Hooks (SWR) ───────────────────────────────────────────────
+const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export function useCourses() {
-  const tenantId = useStore((s) => s.currentUser.tenantId);
-  return useSWR(`/api/courses?tenantId=${tenantId}`, fetcher, {
+  return useSWR('/api/courses', fetcher, {
     revalidateOnFocus: false,
     fallbackData: [],
   });
 }
 
 export function useRewards() {
-  const tenantId = useStore((s) => s.currentUser.tenantId);
-  return useSWR(`/api/rewards?tenantId=${tenantId}`, fetcher, {
+  return useSWR('/api/rewards', fetcher, {
     revalidateOnFocus: false,
     fallbackData: [],
   });
 }
 
-// ── Mutation Functions (POST calls) ─────────────────────────────────────────
-
 export async function triggerLessonCompletion(lessonId: string): Promise<{
   success: boolean;
   newBalance?: number;
+  alreadyCompleted?: boolean;
   message?: string;
   error?: string;
 }> {

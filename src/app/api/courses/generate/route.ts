@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getSessionContext, getTenantDb } from '@/backend/db';
+import { getSessionContext } from '@/backend/session';
+import { getTenantDb } from '@/backend/db';
 import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
 
@@ -167,7 +168,7 @@ function normalizePoints(
 // ── Handler Principal ───────────────────────────────────────────────────────
 export async function POST(request: Request) {
   try {
-    const { tenantId, role } = await getSessionContext(request);
+    const { tenantId, role } = await getSessionContext();
     if (role !== 'admin_rh') {
       return NextResponse.json({ error: 'Acesso Negado: Apenas Gestores de RH.' }, { status: 403 });
     }

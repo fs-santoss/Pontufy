@@ -7,33 +7,32 @@ const { auth } = NextAuth(authConfig);
 export default auth((req: any) => {
   const isLoggedIn = !!req.auth;
   const { pathname } = req.nextUrl;
-  
-  // Public routes that don't need protection
-  if (pathname.startsWith('/login') || pathname.startsWith('/api/auth')) {
-    if (isLoggedIn && pathname.startsWith('/login')) {
-      return NextResponse.redirect(new URL('/', req.nextUrl));
-    }
+
+  // Public routes: login page and NextAuth internals
+  if (pathname.startsWith('/api/auth')) return null;
+
+  if (pathname.startsWith('/login')) {
+    // Redirect already-authenticated users away from the login page
+    if (isLoggedIn) return NextResponse.redirect(new URL('/dashboard', req.nextUrl));
     return null;
   }
-  
-  // Require authentication for all other routes
+
+  // All other routes require authentication
   if (!isLoggedIn) {
     return NextResponse.redirect(new URL('/login', req.nextUrl));
   }
-  
-  // Role-Based Access Control (RBAC)
+
+  // RBAC: only admin_rh may access /admin
   if (pathname.startsWith('/admin')) {
     const role = req.auth?.user?.role;
     if (role !== 'admin_rh') {
-      // Employees are blocked from /admin
-      return NextResponse.redirect(new URL('/', req.nextUrl));
+      return NextResponse.redirect(new URL('/dashboard', req.nextUrl));
     }
   }
-  
+
   return null;
 });
 
 export const config = {
-  // Matches all routes except api, _next/static, _next/image, and favicon
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)']
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };

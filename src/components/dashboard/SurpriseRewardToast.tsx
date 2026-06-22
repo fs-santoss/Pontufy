@@ -18,10 +18,11 @@ export default function SurpriseRewardToast() {
   const triggerAutopilot = async () => {
     setIsLoading(true);
     try {
+      // userId is derived server-side from the JWT — no client-supplied data needed
       const res = await fetch("/api/rewards/autopilot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: "mock-user-id" }) // ID mockado
+        body: JSON.stringify({}),
       });
       if (res.ok) {
         const result = await res.json();
@@ -38,7 +39,8 @@ export default function SurpriseRewardToast() {
   return (
     <>
       {/* Botão flutuante para forçar o Autopilot (Apenas no MVP para Review) */}
-      <button 
+      <button
+        type="button"
         onClick={triggerAutopilot}
         disabled={isLoading}
         className="fixed bottom-6 right-6 z-50 bg-gradient-brand text-white px-4 py-2 rounded-full font-medium shadow-lg hover:shadow-xl transition-all flex items-center space-x-2"
@@ -68,7 +70,8 @@ export default function SurpriseRewardToast() {
             <div className="p-5">
               <div className="flex justify-between items-start mb-3">
                 <h3 className="font-bold text-brand-slate text-lg">Oferta Relâmpago ⚡</h3>
-                <button 
+                <button
+                  type="button"
                   onClick={() => setIsVisible(false)}
                   className="text-gray-400 hover:text-gray-600"
                 >
@@ -90,7 +93,8 @@ export default function SurpriseRewardToast() {
                 </div>
               </div>
 
-              <button 
+              <button
+                type="button"
                 onClick={() => {
                   alert(`Resgate de ${data.recommendedRewardId} solicitado!`);
                   setIsVisible(false);

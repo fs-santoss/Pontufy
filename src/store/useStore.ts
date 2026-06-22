@@ -5,14 +5,15 @@ interface UserSession {
   tenantId: string;
   role: 'admin_rh' | 'employee';
   name: string;
-  company: string;
 }
 
 interface PontufyState {
-  currentUser: UserSession;
+  currentUser: UserSession | null;
   currentPointsBalance: number;
   searchQuery: string;
 
+  setUser: (user: UserSession) => void;
+  clearUser: () => void;
   setPointsBalance: (balance: number) => void;
   addPoints: (amount: number) => void;
   deductPoints: (amount: number) => void;
@@ -20,17 +21,12 @@ interface PontufyState {
 }
 
 export const useStore = create<PontufyState>((set) => ({
-  currentUser: {
-    userId: 'mock-user-id',
-    tenantId: 'tenant-uuid-1234',
-    role: 'employee',
-    name: 'Alex',
-    company: 'TechCorp',
-  },
-
-  currentPointsBalance: 1250,
+  currentUser: null,
+  currentPointsBalance: 0,
   searchQuery: '',
 
+  setUser: (user) => set({ currentUser: user }),
+  clearUser: () => set({ currentUser: null, currentPointsBalance: 0, searchQuery: '' }),
   setPointsBalance: (balance) => set({ currentPointsBalance: balance }),
   addPoints: (amount) => set((s) => ({ currentPointsBalance: s.currentPointsBalance + amount })),
   deductPoints: (amount) => set((s) => ({ currentPointsBalance: Math.max(0, s.currentPointsBalance - amount) })),

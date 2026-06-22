@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getSessionContext, getTenantDb } from '@/backend/db';
+import { getSessionContext } from '@/backend/session';
+import { getTenantDb } from '@/backend/db';
 
 export async function POST(request: Request) {
   try {
-    const { tenantId, userId } = await getSessionContext(request);
+    const { tenantId, userId } = await getSessionContext();
     const { rewardId } = await request.json();
 
     if (!rewardId) return NextResponse.json({ error: "rewardId é obrigatório" }, { status: 400 });
@@ -46,11 +47,12 @@ export async function POST(request: Request) {
       // Registra a saída no extrato
       await tx.pointsLedger.create({
         data: {
-          userId: userId,
+          userId,
+          tenantId,
           type: 'loss',
           pointsAmount: reward.pricePoints,
-          description: `Resgate: ${reward.title}`
-        }
+          description: `Resgate: ${reward.title}`,
+        },
       });
 
       return updatedUser;

@@ -1,10 +1,15 @@
+import { redirect } from 'next/navigation';
+import { auth } from '@/auth';
 import MetricCard from '@/components/admin/MetricCard';
 import AISelectionTable from '@/components/admin/AISelectionTable';
 import RewardToggleRow from '@/components/admin/RewardToggleRow';
 import adminData from '@/data/admin.json';
 import { LayoutDashboard, LogOut, Settings, Sparkles } from 'lucide-react';
 
-export default function AdminDashboard() {
+export default async function AdminDashboard() {
+  const session = await auth();
+  if (!session || session.user.role !== 'admin_rh') redirect('/dashboard');
+
   const { tenant, metrics, aiCourses, catalog } = adminData;
 
   return (
@@ -16,18 +21,18 @@ export default function AdminDashboard() {
           <div className="text-xs font-medium text-gray-400 mt-2 uppercase tracking-widest">{tenant.companyName}</div>
         </div>
         <nav className="flex-1 p-4 flex flex-col gap-2">
-          <button className="flex items-center gap-3 text-left w-full px-4 py-3 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
+          <button type="button" className="flex items-center gap-3 text-left w-full px-4 py-3 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
             <LayoutDashboard size={20} /> Visão Geral
           </button>
-          <button className="flex items-center gap-3 text-left w-full px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-800 transition-colors font-semibold">
+          <button type="button" className="flex items-center gap-3 text-left w-full px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-800 transition-colors font-semibold">
             <Sparkles size={20} /> IA Cursos
           </button>
-          <button className="flex items-center gap-3 text-left w-full px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-800 transition-colors font-semibold">
+          <button type="button" className="flex items-center gap-3 text-left w-full px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-800 transition-colors font-semibold">
             <Settings size={20} /> Configurações
           </button>
         </nav>
         <div className="p-4 border-t border-gray-700">
-          <button className="flex items-center gap-3 text-left w-full px-4 py-3 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors font-semibold">
+          <button type="button" className="flex items-center gap-3 text-left w-full px-4 py-3 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors font-semibold">
             <LogOut size={20} /> Sair
           </button>
         </div>

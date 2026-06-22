@@ -24,7 +24,7 @@ export default function Navbar() {
         </Link>
         <div className="hidden md:flex gap-6 text-sm font-medium text-brand-text">
           <Link href="/dashboard" className="text-brand-slate transition-colors hover:text-emerald-500">Página Inicial</Link>
-          <Link href="/dashboard/cursos" className="transition-colors hover:text-emerald-500">Meus Cursos/Trilhas</Link>
+          <Link href="/dashboard" className="transition-colors hover:text-emerald-500">Meus Cursos/Trilhas</Link>
           <Link href="/loja" className="transition-colors hover:text-emerald-500">Clube de Benefícios</Link>
         </div>
       </div>
@@ -71,7 +71,7 @@ export default function Navbar() {
                     <p className="text-sm font-semibold text-brand-slate truncate">{session?.user?.name}</p>
                     <p className="text-xs text-gray-500 truncate">{session?.user?.email}</p>
                   </div>
-                  <Link href="/perfil" className="flex items-center gap-2 px-4 py-2 text-sm text-brand-slate hover:bg-gray-50 transition-colors">
+                  <Link href="/wallet" className="flex items-center gap-2 px-4 py-2 text-sm text-brand-slate hover:bg-gray-50 transition-colors">
                     <Settings size={16} /> Meu Perfil
                   </Link>
                   <button 
