@@ -30,8 +30,8 @@ export async function POST(request: Request) {
 
     const ai = new GoogleGenAI({ apiKey });
 
-    // 2. Chamada ao LLM
-    const response = await ai.models.generateContent({
+    // 2. Chamada ao LLM com Proteção Rigorosa de Timeout (45s)
+    const aiPromise = ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: `Vertical: ${vertical}. Prompt do RH: ${prompt}`,
       config: {
@@ -40,6 +40,21 @@ export async function POST(request: Request) {
         temperature: 0.6,
       },
     });
+
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('LLM_TIMEOUT')), 45000)
+    );
+
+    let response: any;
+    try {
+      response = await Promise.race([aiPromise, timeoutPromise]);
+    } catch (aiError: any) {
+      if (aiError.message === 'LLM_TIMEOUT') {
+        console.error('[QSTASH] LLM Timeout aos 45s. Abortando silenciosamente para prevenir DLQ Flooding.');
+        return NextResponse.json({ success: false, reason: 'LLM Response Timeout' }, { status: 200 });
+      }
+      throw aiError; // Deixa o catch global pegar
+    }
 
     const text = response.text;
     if (!text) throw new Error('Resposta vazia da IA.');

@@ -17,7 +17,12 @@ export async function completeLessonAndAwardPoints(lessonId: string): Promise<{
 
     const db = getTenantPrisma(tenantId);
 
-    const lesson = await db.lesson.findUnique({ where: { id: lessonId } });
+    const lesson = await db.lesson.findFirst({ 
+      where: { 
+        id: lessonId,
+        course: { tenantId } 
+      } 
+    });
     if (!lesson) {
       return { success: false, error: 'Aula não encontrada no escopo da empresa.' };
     }

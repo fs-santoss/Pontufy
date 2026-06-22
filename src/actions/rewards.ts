@@ -2,6 +2,7 @@
 
 import { getSessionContext } from '@/backend/session';
 import { getTenantPrisma } from '@/backend/db';
+import { acquireLock, releaseLock } from '@/lib/redis/mutex';
 
 export async function redeemRewardAction(rewardId: string): Promise<{
   success: boolean;
@@ -15,57 +16,68 @@ export async function redeemRewardAction(rewardId: string): Promise<{
 
     if (!rewardId) return { success: false, error: "rewardId é obrigatório" };
 
-    const db = getTenantPrisma(tenantId);
-
-    const reward = await db.reward.findUnique({
-      where: { id: rewardId }
-    });
-
-    if (!reward || !reward.isActive) {
-      return { success: false, error: "Recompensa indisponível ou inativa." };
+    const lockKey = `redeem:${tenantId}:${userId}`;
+    const lockAcquired = await acquireLock(lockKey, 10);
+    
+    if (!lockAcquired) {
+      return { success: false, error: "Transação já em andamento. Aguarde." };
     }
 
-    const user = await db.user.findUnique({
-      where: { id: userId }
-    });
+    try {
+      const db = getTenantPrisma(tenantId);
 
-    if (!user) return { success: false, error: "Usuário não encontrado." };
+      const reward = await db.reward.findUnique({
+        where: { id: rewardId }
+      });
 
-    if (user.pointsBalance < reward.pricePoints) {
+      if (!reward || !reward.isActive) {
+        return { success: false, error: "Recompensa indisponível ou inativa." };
+      }
+
+      const user = await db.user.findUnique({
+        where: { id: userId }
+      });
+
+      if (!user) return { success: false, error: "Usuário não encontrado." };
+
+      if (user.pointsBalance < reward.pricePoints) {
+        return { 
+          success: false,
+          error: "Saldo insuficiente.", 
+        };
+      }
+
+      const result = await db.$transaction(async (tx: any) => {
+        const updatedUser = await tx.user.update({
+          where: { id: userId },
+          data: { pointsBalance: { decrement: reward.pricePoints } }
+        });
+
+        await tx.pointsLedger.create({
+          data: {
+            userId,
+            tenantId,
+            type: 'loss',
+            pointsAmount: reward.pricePoints,
+            description: `Resgate: ${reward.title}`,
+          },
+        });
+
+        return updatedUser;
+      });
+
+      const trackingId = `${tenantId}:${userId}:${Date.now()}`;
+      const urlWithTracking = `${reward.affiliateLink}?trackingId=${trackingId}`;
+
       return { 
-        success: false,
-        error: "Saldo insuficiente.", 
+        success: true, 
+        message: "Resgate concluído com sucesso!",
+        newBalance: result.pointsBalance,
+        affiliateUrl: urlWithTracking
       };
+    } finally {
+      await releaseLock(lockKey);
     }
-
-    const result = await db.$transaction(async (tx: any) => {
-      const updatedUser = await tx.user.update({
-        where: { id: userId },
-        data: { pointsBalance: { decrement: reward.pricePoints } }
-      });
-
-      await tx.pointsLedger.create({
-        data: {
-          userId,
-          tenantId,
-          type: 'loss',
-          pointsAmount: reward.pricePoints,
-          description: `Resgate: ${reward.title}`,
-        },
-      });
-
-      return updatedUser;
-    });
-
-    const trackingId = `${tenantId}:${userId}:${Date.now()}`;
-    const urlWithTracking = `${reward.affiliateLink}?trackingId=${trackingId}`;
-
-    return { 
-      success: true, 
-      message: "Resgate concluído com sucesso!",
-      newBalance: result.pointsBalance,
-      affiliateUrl: urlWithTracking
-    };
 
   } catch (error: any) {
     console.error("Erro no resgate de recompensa:", error);

@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Bell, User, Coins, LogOut, Settings } from 'lucide-react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import Link from 'next/link';
@@ -15,6 +15,11 @@ export default function Navbar() {
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   return (
     <nav className="fixed top-0 w-full z-50 transition-all duration-300 bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100 px-6 py-4 flex items-center justify-between">
@@ -32,7 +37,7 @@ export default function Navbar() {
       <div className="flex items-center gap-6">
         <Link href="/wallet" className="flex items-center gap-2 bg-gradient-pontufy px-4 py-1.5 rounded-full shadow-sm shadow-emerald-100 cursor-pointer hover:shadow-md transition-shadow">
           <Coins size={18} className="text-emerald-700" />
-          <span className="font-bold text-emerald-800">{pointsBalance} pts</span>
+          <span className="font-bold text-emerald-800">{isMounted ? pointsBalance : '...'} pts</span>
         </Link>
         <div className="flex items-center gap-4 text-brand-text">
           
