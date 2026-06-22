@@ -5,6 +5,16 @@ import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
 
 // ── Zod Schema: Tipagem rígida do output da IA ──────────────────────────────
+const QuizOptionSchema = z.object({
+  text: z.string().min(1),
+});
+
+const QuizQuestionSchema = z.object({
+  question: z.string().min(5),
+  options: z.array(QuizOptionSchema).min(2).max(5),
+  correctIndex: z.number().int().min(0),
+});
+
 const LessonSchema = z.object({
   title: z.string().min(3),
   type: z.enum(['text', 'video']),
@@ -14,6 +24,7 @@ const LessonSchema = z.object({
 const ModuleSchema = z.object({
   title: z.string().min(3),
   lessons: z.array(LessonSchema).min(1),
+  quiz: z.array(QuizQuestionSchema).min(1).max(5).optional(),
 });
 
 const CourseSchema = z.object({
@@ -48,6 +59,25 @@ const GEMINI_RESPONSE_SCHEMA = {
               required: ['title', 'type', 'points'],
             },
           },
+          quiz: {
+            type: 'ARRAY' as const,
+            items: {
+              type: 'OBJECT' as const,
+              properties: {
+                question: { type: 'STRING' as const },
+                options: {
+                  type: 'ARRAY' as const,
+                  items: {
+                    type: 'OBJECT' as const,
+                    properties: { text: { type: 'STRING' as const } },
+                    required: ['text'],
+                  },
+                },
+                correctIndex: { type: 'INTEGER' as const },
+              },
+              required: ['question', 'options', 'correctIndex'],
+            },
+          },
         },
         required: ['title', 'lessons'],
       },
@@ -65,7 +95,8 @@ Regras Invioláveis:
 1. FOCO SETORIAL — Adapte títulos, exemplos e vocabulário rigorosamente à vertical informada (Saúde, Tecnologia, Varejo ou Indústria). Não produza conteúdo genérico.
 2. LIMITE DE PONTOS — A soma total de pontos de TODAS as aulas do curso NÃO pode exceder 200 pts. Distribua proporcionalmente: aulas avançadas = mais pontos, introdutórias = menos.
 3. ESTRUTURA — Gere entre 2 e 4 módulos, cada um com 2 a 4 aulas. Alterne tipos (text/video) para variar a experiência.
-4. FORMATO — Responda exclusivamente no schema JSON fornecido. Zero markdown, zero texto fora do JSON.`;
+4. QUIZ — Inclua um array "quiz" com 2 a 3 perguntas de múltipla escolha ao final de cada módulo. Cada pergunta deve ter 4 opções e um correctIndex (0-based) indicando a resposta certa.
+5. FORMATO — Responda exclusivamente no schema JSON fornecido. Zero markdown, zero texto fora do JSON.`;
 
 // ── Fallback: Cursos estáticos por setor (Zero Downtime) ────────────────────
 const FALLBACK_CATALOG: Record<string, CourseGenerated> = {
@@ -226,6 +257,11 @@ export async function POST(request: Request) {
 
     normalizePoints(lessonsToCreate);
 
+    // ── Extract quiz data from modules ──
+    const quizData = courseData.modules
+      .filter((m) => m.quiz && m.quiz.length > 0)
+      .map((m) => ({ module: m.title, questions: m.quiz }));
+
     // ── Transação Atômica: Debita crédito + Persiste curso ──
     const newCourse = await db.$transaction(async (tx: any) => {
       await tx.tenant.update({
@@ -238,6 +274,7 @@ export async function POST(request: Request) {
           title: courseData.title,
           description: courseData.description,
           aiCreditsSpent: 1,
+          quizJson: quizData.length > 0 ? JSON.stringify(quizData) : null,
           status: 'published',
           lessons: { create: lessonsToCreate },
         },

@@ -5,5 +5,15 @@
     "src/app/api/courses/generate/route.ts": {
       "maxDuration": 60
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/expire-points",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/link-health",
+      "schedule": "*/30 8-20 * * 1-5"
+    }
+  ]
 }

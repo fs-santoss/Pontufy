@@ -4,9 +4,10 @@ import Link from 'next/link';
 
 import VideoPlayer from '@/components/player/VideoPlayer';
 import SidebarModules from '@/components/player/SidebarModules';
+import QuizModule from '@/components/player/QuizModule';
 import PointsCelebration from '@/components/gamification/PointsCelebration';
 import { useCourse, triggerLessonCompletion } from '@/hooks/useApi';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Download } from 'lucide-react';
 
 interface Lesson {
   id: string;
@@ -60,6 +61,36 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
   }
 
   const completedCount = lessons.filter((l) => l.completed).length;
+  const allCompleted = completedCount === lessons.length && lessons.length > 0;
+  const quizzes: { module: string; questions: any[] }[] = course.quiz || [];
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadCertificate = async () => {
+    setIsDownloading(true);
+    try {
+      const res = await fetch('/api/certificates/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courseId: id }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || 'Erro ao gerar certificado.');
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `certificado-${course.title}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('Erro ao baixar certificado.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   const handleLessonComplete = async () => {
     if (activeLesson.completed || isCompleting) return;
@@ -112,7 +143,7 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
             <div className="mt-6 text-brand-slate/80 leading-relaxed max-w-3xl">
               <p>{course.description}</p>
 
-              <div className="mt-8">
+              <div className="mt-8 space-y-4">
                 <button
                   onClick={handleLessonComplete}
                   disabled={activeLesson.completed || isCompleting}
@@ -124,6 +155,33 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
                 >
                   {activeLesson.completed ? 'Aula Concluída' : `Concluir Aula e Ganhar ${activeLesson.points} Pontos`}
                 </button>
+
+                {allCompleted && quizzes.length > 0 && (
+                  <div className="space-y-4 pt-4 border-t border-gray-100">
+                    <h2 className="text-xl font-bold text-brand-slate">Quizzes do Curso</h2>
+                    {quizzes.map((q, i) => (
+                      <QuizModule
+                        key={i}
+                        module={q.module}
+                        questions={q.questions}
+                        onComplete={(score, total) => {
+                          console.log(`Quiz "${q.module}": ${score}/${total}`);
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {allCompleted && (
+                  <button
+                    onClick={handleDownloadCertificate}
+                    disabled={isDownloading}
+                    className="px-6 py-3 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 bg-brand-slate text-white hover:bg-brand-slate/90 hover:shadow-md disabled:opacity-50"
+                  >
+                    <Download size={18} />
+                    {isDownloading ? 'Gerando...' : 'Baixar Certificado'}
+                  </button>
+                )}
               </div>
             </div>
           </div>

@@ -41,11 +41,17 @@ export async function GET(
       completed: completedIds.has(lesson.id),
     }));
 
+    let quiz = null;
+    if (course.quizJson) {
+      try { quiz = JSON.parse(course.quizJson); } catch {}
+    }
+
     return NextResponse.json({
       id: course.id,
       title: course.title,
       description: course.description,
       lessons,
+      quiz,
     });
   } catch (error: any) {
     if (error.message === 'Não autenticado.') {
