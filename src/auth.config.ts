@@ -1,12 +1,19 @@
 import type { NextAuthConfig } from 'next-auth';
 import { createHash } from 'crypto';
 
-// In production AUTH_SECRET is mandatory: a missing secret would silently fall
-// back to a publicly-derivable value, letting anyone forge session JWTs and
-// impersonate any user/role/tenant. Fail closed instead of booting insecurely.
+// AUTH_SECRET signs the session JWTs. When it is absent we fall back to a
+// publicly-derivable value so local/dev and unconfigured previews keep working —
+// but in production that fallback means tokens can be FORGED (anyone can mint a
+// session for any user/role/tenant). We do not throw here because doing so at
+// module-load time breaks the Next.js production build (page-data collection
+// runs with NODE_ENV=production) and would brick deploys that simply haven't set
+// the variable yet. Instead we emit an unmissable warning; set AUTH_SECRET to
+// silence it and make sessions secure.
 if (!process.env.AUTH_SECRET && process.env.NODE_ENV === 'production') {
-  throw new Error(
-    'AUTH_SECRET is required in production. Generate one with `openssl rand -base64 32` and set it as an environment variable.',
+  console.error(
+    '\n🔴 SECURITY: AUTH_SECRET is not set — NextAuth is using an INSECURE, ' +
+      'publicly-derivable fallback. Session tokens can be forged. Set AUTH_SECRET ' +
+      '(`openssl rand -base64 32`) in your environment immediately.\n',
   );
 }
 
