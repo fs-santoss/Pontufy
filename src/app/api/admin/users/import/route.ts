@@ -3,6 +3,7 @@ import { randomBytes, scrypt } from 'crypto';
 import { promisify } from 'util';
 import { getSessionContext } from '@/backend/session';
 import { prisma } from '@/backend/db';
+import { logAudit, extractRequestMeta } from '@/lib/audit';
 
 const scryptAsync = promisify(scrypt);
 
@@ -96,6 +97,17 @@ export async function POST(request: Request) {
         // duplicate email race condition — skip
       }
     }
+
+    const { userId } = await getSessionContext();
+    const meta = extractRequestMeta(request);
+    await logAudit({
+      tenantId,
+      userId,
+      action: 'USER_IMPORT',
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      newValues: { total: rows.length, created, skipped },
+    });
 
     return NextResponse.json({
       success: true,

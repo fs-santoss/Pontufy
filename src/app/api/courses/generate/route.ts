@@ -231,7 +231,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Créditos de IA insuficientes.' }, { status: 402 });
     }
 
-    // ── Geração via LLM ou Fallback ──
+    // ── Async Queue Dispatch (QStash) or Synchronous Fallback ──
+    const qstashToken = process.env.QSTASH_TOKEN;
+    const workerUrl = process.env.QSTASH_WORKER_URL || `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/webhooks/queue-worker`;
+
+    if (qstashToken) {
+      const qstashRes = await fetch('https://qstash.upstash.io/v2/publish/' + encodeURIComponent(workerUrl), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${qstashToken}`,
+          'Content-Type': 'application/json',
+          'Upstash-Retries': '2',
+        },
+        body: JSON.stringify({ tenantId, prompt, vertical }),
+      });
+
+      if (!qstashRes.ok) {
+        console.error('QStash publish failed:', await qstashRes.text());
+        return NextResponse.json({ error: 'Falha ao enfileirar geração.' }, { status: 502 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        async: true,
+        message: 'Curso sendo gerado em background. Você será notificado quando estiver pronto.',
+      }, { status: 202 });
+    }
+
+    // ── Synchronous fallback when QStash not configured ──
     let courseData: CourseGenerated;
     const apiKey = process.env.GEMINI_API_KEY;
 
@@ -259,7 +286,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // ── Flatten Modules → Lessons para o schema Prisma ──
     const lessonsToCreate: { title: string; type: 'text' | 'video'; pointsAssigned: number }[] = [];
     for (const mod of courseData.modules) {
       for (const lesson of mod.lessons) {
@@ -273,12 +299,10 @@ export async function POST(request: Request) {
 
     normalizePoints(lessonsToCreate);
 
-    // ── Extract quiz data from modules ──
     const quizData = courseData.modules
       .filter((m) => m.quiz && m.quiz.length > 0)
       .map((m) => ({ module: m.title, questions: m.quiz }));
 
-    // ── Transação Atômica: Debita crédito + Persiste curso ──
     const newCourse = await db.$transaction(async (tx: any) => {
       await tx.tenant.update({
         where: { id: tenantId },

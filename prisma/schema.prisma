@@ -21,6 +21,8 @@ model Tenant {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  locale          String   @default("pt-BR")  // 'pt-BR', 'en', 'es'
+
   users           User[]
   courses         Course[]
   pointsLedger    PointsLedger[]
@@ -138,6 +140,23 @@ model PasswordReset {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([token])
+}
+
+model AuditLog {
+  id             String   @id @default(uuid())
+  tenantId       String
+  userId         String?
+  action         String
+  ipAddress      String?
+  userAgent      String?
+  previousValues String?
+  newValues      String?
+  createdAt      DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
 }
 
 model Invitation {

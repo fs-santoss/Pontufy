@@ -1,0 +1,218 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getTenantDb } from '@/backend/db';
+import { GoogleGenAI } from '@google/genai';
+import { z } from 'zod';
+import { broadcastToTenant } from '@/app/api/notifications/stream/route';
+import { logAudit } from '@/lib/audit';
+
+const QuizOptionSchema = z.object({ text: z.string().min(1) });
+const QuizQuestionSchema = z.object({
+  question: z.string().min(5),
+  options: z.array(QuizOptionSchema).min(2).max(5),
+  correctIndex: z.number().int().min(0),
+});
+const LessonSchema = z.object({
+  title: z.string().min(3),
+  type: z.enum(['text', 'video']),
+  points: z.number().int().positive(),
+});
+const ModuleSchema = z.object({
+  title: z.string().min(3),
+  lessons: z.array(LessonSchema).min(1),
+  quiz: z.array(QuizQuestionSchema).min(1).max(5).optional(),
+});
+const CourseSchema = z.object({
+  title: z.string().min(3),
+  description: z.string().min(5),
+  modules: z.array(ModuleSchema).min(1),
+});
+
+type CourseGenerated = z.infer<typeof CourseSchema>;
+
+const SYSTEM_PROMPT = `Você é o motor de IA da Pontufy — uma plataforma B2B de educação corporativa gamificada.
+
+Missão: Gerar um curso completo (módulos + aulas) adaptado ao setor vertical da empresa.
+
+Regras Invioláveis:
+1. FOCO SETORIAL — Adapte títulos, exemplos e vocabulário rigorosamente à vertical informada (Saúde, Tecnologia, Varejo ou Indústria). Não produza conteúdo genérico.
+2. LIMITE DE PONTOS — A soma total de pontos de TODAS as aulas do curso NÃO pode exceder 200 pts. Distribua proporcionalmente: aulas avançadas = mais pontos, introdutórias = menos.
+3. ESTRUTURA — Gere entre 2 e 4 módulos, cada um com 2 a 4 aulas. Alterne tipos (text/video) para variar a experiência.
+4. QUIZ — Inclua um array "quiz" com 2 a 3 perguntas de múltipla escolha ao final de cada módulo. Cada pergunta deve ter 4 opções e um correctIndex (0-based) indicando a resposta certa.
+5. FORMATO — Responda exclusivamente no schema JSON fornecido. Zero markdown, zero texto fora do JSON.`;
+
+const GEMINI_RESPONSE_SCHEMA = {
+  type: 'OBJECT' as const,
+  properties: {
+    title: { type: 'STRING' as const },
+    description: { type: 'STRING' as const },
+    modules: {
+      type: 'ARRAY' as const,
+      items: {
+        type: 'OBJECT' as const,
+        properties: {
+          title: { type: 'STRING' as const },
+          lessons: {
+            type: 'ARRAY' as const,
+            items: {
+              type: 'OBJECT' as const,
+              properties: {
+                title: { type: 'STRING' as const },
+                type: { type: 'STRING' as const, enum: ['text', 'video'] },
+                points: { type: 'INTEGER' as const },
+              },
+              required: ['title', 'type', 'points'],
+            },
+          },
+          quiz: {
+            type: 'ARRAY' as const,
+            items: {
+              type: 'OBJECT' as const,
+              properties: {
+                question: { type: 'STRING' as const },
+                options: {
+                  type: 'ARRAY' as const,
+                  items: {
+                    type: 'OBJECT' as const,
+                    properties: { text: { type: 'STRING' as const } },
+                    required: ['text'],
+                  },
+                },
+                correctIndex: { type: 'INTEGER' as const },
+              },
+              required: ['question', 'options', 'correctIndex'],
+            },
+          },
+        },
+        required: ['title', 'lessons'],
+      },
+    },
+  },
+  required: ['title', 'description', 'modules'],
+};
+
+const FALLBACK_CATALOG: Record<string, CourseGenerated> = {
+  tech: {
+    title: 'Segurança da Informação e LGPD',
+    description: 'Cibersegurança, engenharia social e tratamento de dados.',
+    modules: [
+      { title: 'Fundamentos de Segurança', lessons: [
+        { title: 'Engenharia Social e Phishing', type: 'text', points: 30 },
+        { title: 'Gestão de Senhas e Acessos', type: 'video', points: 50 },
+      ]},
+      { title: 'LGPD na Prática', lessons: [
+        { title: 'Tratamento de Dados e Consentimento', type: 'text', points: 40 },
+        { title: 'Ciclo de Vida do Dado', type: 'video', points: 30 },
+      ]},
+    ],
+  },
+};
+
+function normalizePoints(lessons: { title: string; type: 'text' | 'video'; pointsAssigned: number }[]) {
+  const total = lessons.reduce((s, l) => s + l.pointsAssigned, 0);
+  if (total <= 200) return;
+  let runningSum = 0;
+  for (let i = 0; i < lessons.length; i++) {
+    if (i === lessons.length - 1) {
+      lessons[i].pointsAssigned = Math.max(1, 200 - runningSum);
+    } else {
+      lessons[i].pointsAssigned = Math.max(1, Math.round((lessons[i].pointsAssigned / total) * 200));
+      runningSum += lessons[i].pointsAssigned;
+    }
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const qstashSignature = request.headers.get('upstash-signature');
+  const qstashToken = process.env.QSTASH_CURRENT_SIGNING_KEY;
+
+  if (qstashToken && !qstashSignature) {
+    return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
+  }
+
+  try {
+    const { tenantId, prompt, vertical } = await request.json();
+
+    if (!tenantId || !prompt) {
+      return NextResponse.json({ error: 'MISSING_FIELDS' }, { status: 400 });
+    }
+
+    const db = getTenantDb(tenantId);
+
+    let courseData: CourseGenerated;
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      courseData = FALLBACK_CATALOG[vertical] || FALLBACK_CATALOG.tech;
+    } else {
+      try {
+        const ai = new GoogleGenAI({ apiKey });
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: `Vertical: ${vertical || 'tech'}. Prompt do RH: ${prompt}`,
+          config: {
+            systemInstruction: SYSTEM_PROMPT,
+            responseMimeType: 'application/json',
+            responseSchema: GEMINI_RESPONSE_SCHEMA,
+            temperature: 0.6,
+          },
+        });
+        const text = response.text;
+        if (!text) throw new Error('Empty AI response');
+        courseData = CourseSchema.parse(JSON.parse(text));
+      } catch {
+        courseData = FALLBACK_CATALOG[vertical] || FALLBACK_CATALOG.tech;
+      }
+    }
+
+    const lessonsToCreate: { title: string; type: 'text' | 'video'; pointsAssigned: number }[] = [];
+    for (const mod of courseData.modules) {
+      for (const lesson of mod.lessons) {
+        lessonsToCreate.push({
+          title: `[${mod.title}] ${lesson.title}`,
+          type: lesson.type,
+          pointsAssigned: typeof lesson.points === 'number' ? lesson.points : 10,
+        });
+      }
+    }
+    normalizePoints(lessonsToCreate);
+
+    const quizData = courseData.modules
+      .filter((m) => m.quiz && m.quiz.length > 0)
+      .map((m) => ({ module: m.title, questions: m.quiz }));
+
+    const newCourse = await db.$transaction(async (tx: any) => {
+      await tx.tenant.update({
+        where: { id: tenantId },
+        data: { aiCredits: { decrement: 1 } },
+      });
+      return tx.course.create({
+        data: {
+          title: courseData.title,
+          description: courseData.description,
+          aiCreditsSpent: 1,
+          quizJson: quizData.length > 0 ? JSON.stringify(quizData) : null,
+          status: 'published',
+          lessons: { create: lessonsToCreate },
+        },
+        include: { lessons: true },
+      });
+    });
+
+    await logAudit({
+      tenantId,
+      action: 'COURSE_GENERATED_ASYNC',
+      newValues: { courseId: newCourse.id, title: newCourse.title },
+    });
+
+    broadcastToTenant(tenantId, 'course_created', {
+      courseId: newCourse.id,
+      title: newCourse.title,
+      lessonsCount: newCourse.lessons.length,
+    });
+
+    return NextResponse.json({ success: true, courseId: newCourse.id });
+  } catch (error) {
+    console.error('POST /api/webhooks/queue-worker:', error);
+    return NextResponse.json({ error: 'WORKER_ERROR' }, { status: 500 });
+  }
+}

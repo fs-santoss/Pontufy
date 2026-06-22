@@ -7,11 +7,26 @@ if (!process.env.DATABASE_URL) {
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
+  prismaRead: PrismaClient | undefined;
 };
 
 export const prisma = globalForPrisma.prisma ?? new PrismaClient();
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+
+function createReadReplica(): PrismaClient {
+  const readUrl = process.env.DATABASE_READ_URL;
+  if (!readUrl) return prisma;
+
+  if (!globalForPrisma.prismaRead) {
+    globalForPrisma.prismaRead = new PrismaClient({
+      datasourceUrl: readUrl,
+    });
+  }
+  return globalForPrisma.prismaRead;
+}
+
+export const prismaRead = createReadReplica();
 
 /**
  * Zero Trust Prisma extension — isolates every query to the caller's tenant.
