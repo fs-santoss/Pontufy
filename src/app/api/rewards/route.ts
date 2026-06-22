@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSessionContext } from '@/backend/session';
 import { getTenantDb } from '@/backend/db';
-import { cacheGet, cacheSet } from '@/lib/redis';
+import { cacheGet, cacheSet, cacheDelete } from '@/lib/redis';
 
 export async function GET(request: Request) {
   try {
@@ -43,5 +43,36 @@ export async function GET(request: Request) {
     }
     console.error('GET /api/rewards:', error);
     return NextResponse.json([], { status: 500 });
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const { tenantId, role } = await getSessionContext();
+
+    if (role !== 'admin_rh') {
+      return NextResponse.json({ error: 'Acesso restrito a administradores.' }, { status: 403 });
+    }
+
+    const { rewardId, isActive } = await request.json();
+    if (!rewardId || typeof isActive !== 'boolean') {
+      return NextResponse.json({ error: 'rewardId e isActive são obrigatórios.' }, { status: 400 });
+    }
+
+    const db = getTenantDb(tenantId);
+    const reward = await db.reward.update({
+      where: { id: rewardId },
+      data: { isActive },
+    });
+
+    await cacheDelete(`rewards:${tenantId}:*`).catch(() => {});
+
+    return NextResponse.json({ success: true, reward });
+  } catch (error: any) {
+    if (error.message === 'Não autenticado.') {
+      return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
+    }
+    console.error('PATCH /api/rewards:', error);
+    return NextResponse.json({ error: 'Erro interno.' }, { status: 500 });
   }
 }

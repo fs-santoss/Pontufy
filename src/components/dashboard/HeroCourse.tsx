@@ -43,9 +43,9 @@ export default function HeroCourse({ course }: { course: any }) {
           <Link href={`/player/${course.id}`} className="flex items-center gap-2 bg-gradient-pontufy text-emerald-900 font-bold px-8 py-3 rounded-lg shadow-lg shadow-emerald-200 hover:shadow-xl hover:scale-105 transition-all">
             <Play size={20} fill="currentColor" /> Continuar Aprendendo
           </Link>
-          <button className="flex items-center gap-2 bg-white text-brand-slate font-bold px-8 py-3 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
+          <Link href={`/player/${course.id}`} className="flex items-center gap-2 bg-white text-brand-slate font-bold px-8 py-3 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
             <Info size={20} /> Detalhes
-          </button>
+          </Link>
         </div>
       </div>
     </div>

@@ -95,8 +95,20 @@ export default function SurpriseRewardToast() {
 
               <button
                 type="button"
-                onClick={() => {
-                  alert(`Resgate de ${data.recommendedRewardId} solicitado!`);
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/api/rewards/redeem', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ rewardId: data.recommendedRewardId }),
+                    });
+                    const result = await res.json();
+                    if (result.success && result.affiliateUrl) {
+                      window.open(result.affiliateUrl, '_blank');
+                    }
+                  } catch (err) {
+                    console.error('Autopilot redeem failed:', err);
+                  }
                   setIsVisible(false);
                 }}
                 className="w-full bg-brand-slate text-white py-2.5 rounded-lg font-medium hover:bg-black transition-colors"

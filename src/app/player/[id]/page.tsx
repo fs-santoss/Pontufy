@@ -26,6 +26,7 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
   const [showCelebration, setShowCelebration] = useState(false);
   const [earnedPoints, setEarnedPoints] = useState(0);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'notes' | 'materials'>('overview');
 
   if (isLoading || !course) {
     return (
@@ -136,12 +137,31 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
           <div className="flex-1 p-8 overflow-y-auto">
             <h1 className="text-3xl font-extrabold text-brand-slate mb-4">{activeLesson.title}</h1>
             <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
-              <button className="text-emerald-600 font-bold border-b-2 border-emerald-600 pb-1">Visão Geral</button>
-              <button className="text-brand-text hover:text-brand-slate font-semibold pb-1">Anotações</button>
-              <button className="text-brand-text hover:text-brand-slate font-semibold pb-1">Materiais</button>
+              {(['overview', 'notes', 'materials'] as const).map((tab) => {
+                const labels = { overview: 'Visão Geral', notes: 'Anotações', materials: 'Materiais' };
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`font-semibold pb-1 transition-colors ${
+                      activeTab === tab
+                        ? 'text-emerald-600 font-bold border-b-2 border-emerald-600'
+                        : 'text-brand-text hover:text-brand-slate'
+                    }`}
+                  >
+                    {labels[tab]}
+                  </button>
+                );
+              })}
             </div>
             <div className="mt-6 text-brand-slate/80 leading-relaxed max-w-3xl">
-              <p>{course.description}</p>
+              {activeTab === 'overview' && <p>{course.description}</p>}
+              {activeTab === 'notes' && (
+                <p className="text-brand-text">Suas anotações aparecerão aqui. Recurso em breve.</p>
+              )}
+              {activeTab === 'materials' && (
+                <p className="text-brand-text">Materiais complementares aparecerão aqui. Recurso em breve.</p>
+              )}
 
               <div className="mt-8 space-y-4">
                 <button

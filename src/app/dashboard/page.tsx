@@ -1,18 +1,17 @@
 'use client';
 import { useStore } from '@/store/useStore';
-
 import HeroCourse from '@/components/dashboard/HeroCourse';
 import CourseRow from '@/components/dashboard/CourseRow';
 import SurpriseRewardToast from '@/components/dashboard/SurpriseRewardToast';
-import mockData from '@/data/mock.json';
-import { useCourses } from '@/hooks/useApi';
+import { useCourses, useEnrolledCourses } from '@/hooks/useApi';
+import { Loader2 } from 'lucide-react';
 
 export default function Home() {
-  const { data: coursesResponse } = useCourses();
-  const dynamicCourses = coursesResponse?.data || [];
+  const { data: coursesResponse, isLoading: loadingCourses } = useCourses();
+  const { data: enrolledCourses, isLoading: loadingEnrolled } = useEnrolledCourses();
 
-  const { heroCourse, continueWatching, recommendedRoles } = mockData;
-  const coursesToDisplay = dynamicCourses.length ? dynamicCourses : continueWatching;
+  const allCourses = coursesResponse?.data || [];
+  const enrolled = enrolledCourses || [];
 
   const searchQuery = useStore((s) => s.searchQuery);
 
@@ -25,30 +24,71 @@ export default function Home() {
     );
   };
 
-  const filteredRecommended = filterCourses(recommendedRoles);
-  const filteredContinue = filterCourses(coursesToDisplay);
+  const heroCourse = allCourses[0]
+    ? {
+        id: allCourses[0].id,
+        title: allCourses[0].title,
+        description: allCourses[0].description || '',
+        duration: `${allCourses[0].lessons?.length || 0} aulas`,
+        pointsReward: allCourses[0].lessons?.reduce((s: number, l: any) => s + (l.points || 0), 0) || 0,
+        thumbnail: allCourses[0].imageUrl || 'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200',
+        modules: allCourses[0].lessons?.length || 0,
+      }
+    : null;
+
+  const inProgress = enrolled
+    .filter((c: any) => c.status === 'in_progress')
+    .map((c: any) => ({
+      id: c.id,
+      title: c.title,
+      progress: c.progress,
+      pointsReward: c.totalLessons * 50,
+      thumbnail: c.imageUrl || 'https://images.unsplash.com/photo-1573164713988-8665fc963095?auto=format&fit=crop&q=80&w=600',
+    }));
+
+  const available = allCourses.slice(1).map((c: any) => ({
+    id: c.id,
+    title: c.title,
+    pointsReward: c.lessons?.reduce((s: number, l: any) => s + (l.points || 0), 0) || 0,
+    thumbnail: c.imageUrl || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&q=80&w=600',
+  }));
+
+  const filteredInProgress = filterCourses(inProgress);
+  const filteredAvailable = filterCourses(available);
+
+  const isLoading = loadingCourses || loadingEnrolled;
 
   return (
     <main className="min-h-screen pb-20 bg-[#F8F9FA] text-slate-800">
       <SurpriseRewardToast />
 
-      <HeroCourse course={heroCourse} />
+      {isLoading ? (
+        <div className="flex items-center justify-center h-[50vh]">
+          <Loader2 className="animate-spin text-emerald-500" size={48} />
+        </div>
+      ) : (
+        <>
+          {heroCourse && <HeroCourse course={heroCourse} />}
 
-      <div className="relative z-20 -mt-10 space-y-12">
-        {filteredRecommended.length > 0 && (
-          <CourseRow title="Trilhas Recomendadas pela IA" courses={filteredRecommended} />
-        )}
+          <div className="relative z-20 -mt-10 space-y-12">
+            {filteredInProgress.length > 0 && (
+              <CourseRow title="Continue de onde parou" courses={filteredInProgress} />
+            )}
 
-        {filteredContinue.length > 0 && (
-          <CourseRow title="Continue de onde parou" courses={filteredContinue} />
-        )}
+            {filteredAvailable.length > 0 && (
+              <CourseRow title="Trilhas Recomendadas" courses={filteredAvailable} />
+            )}
 
-        {filteredRecommended.length === 0 && filteredContinue.length === 0 && (
-          <div className="px-8 md:px-16 py-8 text-center text-gray-500">
-            Nenhum curso encontrado para &ldquo;{searchQuery}&rdquo;.
+            {filteredInProgress.length === 0 && filteredAvailable.length === 0 && !heroCourse && (
+              <div className="px-8 md:px-16 py-8 text-center text-gray-500">
+                {searchQuery
+                  ? `Nenhum curso encontrado para "${searchQuery}".`
+                  : 'Nenhum curso disponível ainda. Peça ao seu gestor para criar treinamentos.'}
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
     </main>
   );
 }
