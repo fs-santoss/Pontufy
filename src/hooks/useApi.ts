@@ -1,7 +1,16 @@
 import useSWR, { mutate } from 'swr';
 import { useStore } from '@/store/useStore';
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+const fetcher = async (url: string) => {
+  const r = await fetch(url);
+  if (!r.ok) {
+    const info = await r.json().catch(() => ({}));
+    const error = new Error(info.error || `Request failed with status ${r.status}`);
+    (error as any).status = r.status;
+    throw error;
+  }
+  return r.json();
+};
 
 export function useCourses(page = 1, limit = 12) {
   return useSWR(`/api/courses?page=${page}&limit=${limit}`, fetcher, {

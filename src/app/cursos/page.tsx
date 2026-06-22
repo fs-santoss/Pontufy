@@ -13,7 +13,7 @@ export default function CoursesPage() {
   const searchQuery = useStore((s) => s.searchQuery);
   const [filter, setFilter] = useState<FilterStatus>('all');
 
-  const filtered = (courses || [])
+  const filtered = (Array.isArray(courses) ? courses : [])
     .filter((c: any) => filter === 'all' || c.status === filter)
     .filter((c: any) => {
       if (!searchQuery) return true;

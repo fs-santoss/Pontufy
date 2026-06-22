@@ -10,8 +10,8 @@ export default function Home() {
   const { data: coursesResponse, isLoading: loadingCourses } = useCourses();
   const { data: enrolledCourses, isLoading: loadingEnrolled } = useEnrolledCourses();
 
-  const allCourses = coursesResponse?.data || [];
-  const enrolled = enrolledCourses || [];
+  const allCourses = Array.isArray(coursesResponse?.data) ? coursesResponse.data : [];
+  const enrolled = Array.isArray(enrolledCourses) ? enrolledCourses : [];
 
   const searchQuery = useStore((s) => s.searchQuery);
 
