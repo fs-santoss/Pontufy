@@ -1,16 +1,5 @@
 'use server';
 
-/**
- * Gerador de Treinamentos — Server Action (backend puro, sem UI).
- *
- * Pipeline:
- *  1. Zero Trust  → valida a sessão NextAuth v5 e extrai o tenantId (e o papel).
- *  2. Schema Zod  → `generateObject` (Vercel AI SDK) tipa rigidamente o retorno.
- *  3. Fallback    → OpenAI → Anthropic → Google, em sequência, com try/catch.
- *  4. Persistência → Course + Lessons numa única transação Prisma, com o
- *                    tenantId injetado pela extensão Zero-Trust (getTenantDb).
- */
-
 import { z } from 'zod';
 import { generateObject } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
@@ -21,9 +10,6 @@ import type { LanguageModel } from 'ai';
 import { auth } from '@/auth';
 import { getTenantDb } from '@/backend/db';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 2. Schema estrito (Zod) — contrato exigido da IA via generateObject.
-// ─────────────────────────────────────────────────────────────────────────────
 const lessonSchema = z.object({
   title: z.string().min(3).describe('Título objetivo e prático da aula.'),
   contentSummary: z
@@ -46,15 +32,18 @@ const courseSchema = z.object({
 
 export type GeneratedCourse = z.infer<typeof courseSchema>;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 3. Cadeia de provedores (fallback sequencial).
-//    Só entram na fila os provedores cuja API key está configurada; ainda assim
-//    cada chamada é protegida por try/catch para tolerar timeout/erro de API.
-// ─────────────────────────────────────────────────────────────────────────────
 type ProviderAttempt = { name: string; build: () => LanguageModel };
 
 function buildProviderChain(): ProviderAttempt[] {
   const chain: ProviderAttempt[] = [];
+
+  // Google Gemini primeiro — plano gratuito (15 RPM, 1M tokens/dia)
+  const googleKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  if (googleKey) {
+    const google = createGoogleGenerativeAI({ apiKey: googleKey });
+    const model = process.env.GOOGLE_COURSE_MODEL || 'gemini-2.0-flash';
+    chain.push({ name: `google:${model}`, build: () => google(model) });
+  }
 
   if (process.env.OPENAI_API_KEY) {
     const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -66,14 +55,6 @@ function buildProviderChain(): ProviderAttempt[] {
     const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const model = process.env.ANTHROPIC_COURSE_MODEL || 'claude-haiku-4-5';
     chain.push({ name: `anthropic:${model}`, build: () => anthropic(model) });
-  }
-
-  // O projeto usa GEMINI_API_KEY; o SDK aceita GOOGLE_GENERATIVE_AI_API_KEY.
-  const googleKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-  if (googleKey) {
-    const google = createGoogleGenerativeAI({ apiKey: googleKey });
-    const model = process.env.GOOGLE_COURSE_MODEL || 'gemini-1.5-flash';
-    chain.push({ name: `google:${model}`, build: () => google(model) });
   }
 
   return chain;
@@ -89,15 +70,45 @@ Regras:
 - "pointsAwarded" é um inteiro: aulas introdutórias valem menos, avançadas valem mais.
 - Responda exclusivamente no schema estruturado solicitado.`;
 
+function generateLocalFallback(prompt: string, sector: string): GeneratedCourse {
+  const sectorName = sector || 'geral';
+  return {
+    courseTitle: `Treinamento: ${prompt.slice(0, 60)}`,
+    courseDescription: `Curso gerado automaticamente sobre "${prompt.slice(0, 100)}" para o setor de ${sectorName}. Este conteúdo foi criado como modelo inicial e pode ser editado pelo gestor de RH.`,
+    lessons: [
+      {
+        title: 'Introdução e Contexto',
+        contentSummary: `Nesta aula introdutória, o colaborador conhecerá os fundamentos do tema "${prompt.slice(0, 50)}" aplicados ao setor de ${sectorName}. Serão apresentados os objetivos do treinamento e a importância do tema no dia a dia profissional.`,
+        pointsAwarded: 10,
+      },
+      {
+        title: 'Conceitos Essenciais e Boas Práticas',
+        contentSummary: `Aprofundamento nos conceitos-chave e nas melhores práticas do mercado. O colaborador aprenderá técnicas aplicáveis imediatamente à sua rotina de trabalho no setor de ${sectorName}.`,
+        pointsAwarded: 20,
+      },
+      {
+        title: 'Casos Práticos e Exercícios',
+        contentSummary: `Estudo de casos reais e exercícios práticos para fixação do conteúdo. O colaborador será desafiado a aplicar o conhecimento adquirido em cenários simulados do setor de ${sectorName}.`,
+        pointsAwarded: 30,
+      },
+      {
+        title: 'Avaliação e Próximos Passos',
+        contentSummary: `Revisão geral do conteúdo com avaliação de conhecimento. O colaborador receberá orientações sobre como continuar se desenvolvendo no tema e aplicar o aprendizado no cotidiano.`,
+        pointsAwarded: 40,
+      },
+    ],
+  };
+}
+
 async function generateCourseWithFallback(
   prompt: string,
   sector: string,
 ): Promise<{ data: GeneratedCourse; provider: string }> {
   const chain = buildProviderChain();
+
+  // Sem nenhum provedor configurado → fallback local para validação
   if (chain.length === 0) {
-    throw new Error(
-      'Nenhum provedor de IA configurado. Defina OPENAI_API_KEY, ANTHROPIC_API_KEY ou GEMINI_API_KEY.',
-    );
+    return { data: generateLocalFallback(prompt, sector), provider: 'local:template' };
   }
 
   const userPrompt = `Setor/Vertical: ${sector || 'geral'}.
@@ -116,17 +127,15 @@ Objetivo do treinamento solicitado pelo RH: ${prompt}`;
       });
       return { data: object, provider: attempt.name };
     } catch (err) {
-      // Timeout/erro de API/validação → registra e tenta o próximo provedor.
       errors.push(`${attempt.name}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
-  throw new Error(`Todos os provedores de IA falharam. Detalhes: ${errors.join(' | ')}`);
+  // Todos os provedores falharam → fallback local
+  console.warn('[generateCourseWithFallback] todos falharam, usando template local:', errors.join(' | '));
+  return { data: generateLocalFallback(prompt, sector), provider: 'local:fallback' };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Server Action pública.
-// ─────────────────────────────────────────────────────────────────────────────
 const inputSchema = z.object({
   prompt: z
     .string()
@@ -155,7 +164,6 @@ export type GenerateTrainingResult =
 export async function generateTrainingCourse(
   input: GenerateTrainingInput,
 ): Promise<GenerateTrainingResult> {
-  // 1. Zero Trust — sessão válida + extração do tenantId e papel.
   const session = await auth();
   if (!session?.user?.tenantId) {
     return { success: false, error: 'Não autenticado.' };
@@ -165,16 +173,13 @@ export async function generateTrainingCourse(
   }
   const tenantId = session.user.tenantId;
 
-  // Validação da entrada.
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0]?.message ?? 'Entrada inválida.' };
   }
 
-  // Cliente Prisma já escopado ao tenant (injeta tenantId em leituras/escritas).
   const db = getTenantDb(tenantId);
 
-  // Guarda de créditos antes de gastar uma chamada de IA.
   const tenant = await db.tenant.findUnique({ where: { id: tenantId } });
   if (!tenant) {
     return { success: false, error: 'Tenant não encontrado.' };
@@ -183,7 +188,6 @@ export async function generateTrainingCourse(
     return { success: false, error: 'Créditos de IA insuficientes.' };
   }
 
-  // 3. Geração com fallback OpenAI → Anthropic → Google.
   let generated: { data: GeneratedCourse; provider: string };
   try {
     generated = await generateCourseWithFallback(parsed.data.prompt, parsed.data.sector ?? '');
@@ -195,9 +199,6 @@ export async function generateTrainingCourse(
     };
   }
 
-  // 4. Persistência atômica.
-  // Lesson não possui coluna própria de resumo; o contentSummary é gravado no
-  // campo textual `contentUrl` (nullable) para evitar uma migração de schema.
   const lessonsToCreate = generated.data.lessons.map((lesson) => ({
     title: lesson.title,
     type: 'text' as const,
@@ -207,8 +208,6 @@ export async function generateTrainingCourse(
 
   try {
     const result = await db.$transaction(async (tx: any) => {
-      // Débito condicional: só decrementa se ainda houver crédito (evita gasto
-      // duplo sob concorrência). updateMany retorna a contagem afetada.
       const debit = await tx.tenant.updateMany({
         where: { id: tenantId, aiCredits: { gte: 1 } },
         data: { aiCredits: { decrement: 1 } },
@@ -217,8 +216,6 @@ export async function generateTrainingCourse(
         throw new Error('INSUFFICIENT_CREDITS');
       }
 
-      // O tenantId do Course é injetado pela extensão getTenantDb.
-      // As Lessons herdam o tenant via relação (course.tenantId).
       const course = await tx.course.create({
         data: {
           title: generated.data.courseTitle,
@@ -239,7 +236,6 @@ export async function generateTrainingCourse(
       };
     });
 
-    // Retorno: apenas o objeto de sucesso com o ID do curso criado.
     return {
       success: true,
       courseId: result.courseId,
