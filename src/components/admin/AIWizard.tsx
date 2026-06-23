@@ -53,7 +53,10 @@ export default function AIWizard() {
       setResult(res);
       setStep(3);
 
-      mutate((key: string) => typeof key === 'string' && key.startsWith('/api/courses'));
+      mutate('/api/courses?limit=50');
+      mutate('/api/courses?page=1&limit=12');
+      mutate('/api/courses/enrolled');
+      router.refresh();
     } catch (err: any) {
       setError(err?.message || 'Erro inesperado ao gerar curso. Verifique o console do servidor.');
       setStep(1);
