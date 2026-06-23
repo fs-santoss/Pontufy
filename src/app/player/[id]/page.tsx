@@ -27,6 +27,7 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
   const [earnedPoints, setEarnedPoints] = useState(0);
   const [isCompleting, setIsCompleting] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'notes' | 'materials'>('overview');
+  const [isDownloading, setIsDownloading] = useState(false);
 
   if (isLoading || !course) {
     return (
@@ -64,7 +65,6 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
   const completedCount = lessons.filter((l) => l.completed).length;
   const allCompleted = completedCount === lessons.length && lessons.length > 0;
   const quizzes: { module: string; questions: any[] }[] = course.quiz || [];
-  const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownloadCertificate = async () => {
     setIsDownloading(true);

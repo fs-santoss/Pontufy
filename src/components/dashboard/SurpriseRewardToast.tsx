@@ -43,7 +43,7 @@ export default function SurpriseRewardToast() {
         type="button"
         onClick={triggerAutopilot}
         disabled={isLoading}
-        className="fixed bottom-6 right-6 z-50 bg-gradient-brand text-white px-4 py-2 rounded-full font-medium shadow-lg hover:shadow-xl transition-all flex items-center space-x-2"
+        className="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 z-50 bg-brand-slate text-white px-3 sm:px-4 py-2 rounded-full font-medium shadow-lg hover:shadow-xl transition-all flex items-center space-x-2 text-sm"
       >
         {isLoading ? (
           <span className="animate-pulse">Analisando Perfil...</span>
@@ -62,7 +62,7 @@ export default function SurpriseRewardToast() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className="fixed bottom-20 right-6 z-50 w-80 bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100"
+            className="fixed bottom-32 sm:bottom-20 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] sm:w-80 bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100"
           >
             {/* Header / Brand Gradient Bar */}
             <div className="h-2 bg-gradient-brand w-full"></div>
