@@ -144,6 +144,11 @@ export type GenerateTrainingResult =
       lessonsCount: number;
       provider: string;
       creditsRemaining: number;
+      course: {
+        title: string;
+        description: string;
+        lessons: { title: string; pointsAwarded: number }[];
+      };
     }
   | { success: false; error: string };
 
@@ -241,6 +246,14 @@ export async function generateTrainingCourse(
       lessonsCount: result.lessonsCount,
       provider: generated.provider,
       creditsRemaining: result.creditsRemaining,
+      course: {
+        title: generated.data.courseTitle,
+        description: generated.data.courseDescription,
+        lessons: generated.data.lessons.map((l) => ({
+          title: l.title,
+          pointsAwarded: l.pointsAwarded,
+        })),
+      },
     };
   } catch (err) {
     if (err instanceof Error && err.message === 'INSUFFICIENT_CREDITS') {

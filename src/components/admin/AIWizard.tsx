@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sparkles, CheckCircle, ChevronRight, ArrowLeft, AlertCircle } from 'lucide-react';
+import { generateTrainingCourse } from '@/actions/course-generator';
+import type { GenerateTrainingResult } from '@/actions/course-generator';
 
 export default function AIWizard() {
   const router = useRouter();
@@ -12,7 +14,14 @@ export default function AIWizard() {
 
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [activeChecklist, setActiveChecklist] = useState(0);
-  const [generatedCourse, setGeneratedCourse] = useState<any>(null);
+  const [result, setResult] = useState<Extract<GenerateTrainingResult, { success: true }> | null>(null);
+
+  const sectorLabels: Record<string, string> = {
+    tech: 'Tecnologia e Inovação',
+    health: 'Saúde e Bem-Estar',
+    retail: 'Varejo e Vendas',
+    industry: 'Indústria e Manufatura',
+  };
 
   const checklistItems = [
     'Enviando prompt para a IA...',
@@ -29,28 +38,16 @@ export default function AIWizard() {
     setError('');
 
     try {
-      const res = await fetch('/api/courses/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: `[Setor: ${sector}] ${prompt}`,
-          sector,
-        }),
+      const res = await generateTrainingCourse({
+        prompt,
+        sector: sectorLabels[sector] ?? sector,
       });
 
-      const data = await res.json();
-
-      if (res.status === 202) {
-        setGeneratedCourse({ async: true, message: data.message });
-        setStep(3);
-        return;
+      if (!res.success) {
+        throw new Error(res.error);
       }
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Erro ao gerar curso.');
-      }
-
-      setGeneratedCourse(data.course || data);
+      setResult(res);
       setStep(3);
     } catch (err: any) {
       setError(err.message || 'Erro ao gerar curso.');
@@ -189,37 +186,8 @@ export default function AIWizard() {
     );
   }
 
-  if (step === 3) {
-    if (generatedCourse?.async) {
-      return (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center animate-[fadeIn_0.3s_ease-out]">
-          <CheckCircle className="text-emerald-500 mx-auto mb-4" size={48} />
-          <h2 className="text-2xl font-black text-brand-slate mb-2">Geração em andamento!</h2>
-          <p className="text-brand-text mb-6">
-            O curso está sendo gerado em segundo plano. Você será notificado quando estiver pronto.
-          </p>
-          <button
-            onClick={() => router.push('/admin')}
-            className="bg-gradient-pontufy text-emerald-900 font-bold px-8 py-3 rounded-lg shadow-sm hover:shadow-md transition-all"
-          >
-            Voltar ao Painel
-          </button>
-        </div>
-      );
-    }
-
-    const modules: { title: string; lessons: { title: string; points: number }[] }[] = [];
-    if (generatedCourse?.lessons) {
-      const lessonList = generatedCourse.lessons;
-      let currentModule = { title: 'Módulo 1', lessons: [] as any[] };
-      lessonList.forEach((l: any, i: number) => {
-        currentModule.lessons.push({ title: l.title, points: l.points || 50 });
-        if ((i + 1) % 3 === 0 || i === lessonList.length - 1) {
-          modules.push({ ...currentModule });
-          currentModule = { title: `Módulo ${modules.length + 1}`, lessons: [] };
-        }
-      });
-    }
+  if (step === 3 && result) {
+    const lessons = result.course.lessons;
 
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 animate-[fadeIn_0.3s_ease-out]">
@@ -229,14 +197,14 @@ export default function AIWizard() {
               <CheckCircle className="text-emerald-500" /> Curso Criado!
             </h2>
             <p className="text-brand-text mt-1">
-              <strong>{generatedCourse?.title}</strong> foi publicado com sucesso.
+              <strong>{result.course.title}</strong> foi publicado com sucesso.
             </p>
           </div>
           <button
             onClick={() => {
               setStep(1);
               setPrompt('');
-              setGeneratedCourse(null);
+              setResult(null);
             }}
             className="text-sm font-semibold text-brand-text hover:text-brand-slate flex items-center gap-1 transition-colors"
           >
@@ -244,25 +212,28 @@ export default function AIWizard() {
           </button>
         </div>
 
-        {modules.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 mb-6 text-sm">
+          <span className="bg-emerald-50 text-emerald-700 font-bold px-3 py-1 rounded-full">
+            {result.lessonsCount} aulas
+          </span>
+          <span className="bg-gray-100 text-brand-text font-medium px-3 py-1 rounded-full">
+            Provedor: {result.provider}
+          </span>
+          <span className="bg-gray-100 text-brand-text font-medium px-3 py-1 rounded-full">
+            Créditos restantes: {result.creditsRemaining}
+          </span>
+        </div>
+
+        {lessons.length > 0 && (
           <div className="bg-gray-50 border border-gray-100 rounded-lg p-6 mb-8">
             <h3 className="font-bold text-brand-slate mb-4 text-lg">Estrutura do Curso</h3>
-            <div className="space-y-4">
-              {modules.map((mod, i) => (
-                <div key={i} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-                  <div className="bg-gray-50/50 px-4 py-3 font-bold text-brand-slate border-b border-gray-100">
-                    {mod.title}
-                  </div>
-                  <div className="divide-y divide-gray-50">
-                    {mod.lessons.map((lesson, j) => (
-                      <div key={j} className="px-4 py-3 flex justify-between items-center">
-                        <span className="text-sm font-medium text-brand-slate">{lesson.title}</span>
-                        <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
-                          +{lesson.points} pts
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+            <div className="divide-y divide-gray-100 bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+              {lessons.map((lesson, i) => (
+                <div key={i} className="px-4 py-3 flex justify-between items-center">
+                  <span className="text-sm font-medium text-brand-slate">{lesson.title}</span>
+                  <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
+                    +{lesson.pointsAwarded} pts
+                  </span>
                 </div>
               ))}
             </div>
