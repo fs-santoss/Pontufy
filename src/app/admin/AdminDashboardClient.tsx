@@ -7,6 +7,7 @@ import MetricCard from '@/components/admin/MetricCard';
 import AISelectionTable from '@/components/admin/AISelectionTable';
 import RewardToggleRow from '@/components/admin/RewardToggleRow';
 import AnalyticsDashboard from '@/components/admin/AnalyticsDashboard';
+import { getCachedCourses, reconcileWithApi } from '@/lib/local-courses';
 import { LayoutDashboard, LogOut, Sparkles, Loader2, BarChart3, ArrowLeft, Menu, X, RefreshCw } from 'lucide-react';
 
 type AdminView = 'overview' | 'analytics';
@@ -31,11 +32,16 @@ export default function AdminDashboardClient() {
       fetch(`/api/rewards?limit=50&t=${ts}`, { cache: 'no-store' }).then((r) => r.json()),
     ])
       .then(([tenantData, analyticsData, coursesData, rewardsData]) => {
-        console.log('[AdminDashboard] courses received:', coursesData?.data?.length ?? 0, coursesData);
+        const apiCourses = coursesData.data || [];
+        const apiIds = new Set<string>(apiCourses.map((c: any) => c.id as string));
+        reconcileWithApi(apiIds);
+        const local = getCachedCourses().filter((c) => !apiIds.has(c.id));
+        const merged = [...local, ...apiCourses];
+
         setTenant(tenantData);
         setAnalytics(analyticsData);
         setCourses(
-          (coursesData.data || []).map((c: any) => ({
+          merged.map((c: any) => ({
             id: c.id,
             title: c.title,
             status: c.status === 'published' ? 'Publicado' : 'Rascunho',

@@ -1,16 +1,31 @@
 'use client';
+import { useState, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
 import HeroCourse from '@/components/dashboard/HeroCourse';
 import CourseRow from '@/components/dashboard/CourseRow';
 import SurpriseRewardToast from '@/components/dashboard/SurpriseRewardToast';
 import { useCourses, useEnrolledCourses } from '@/hooks/useApi';
+import { getCachedCourses, reconcileWithApi, type CachedCourse } from '@/lib/local-courses';
 import { Loader2 } from 'lucide-react';
+
+function mergeCourses(apiCourses: any[], local: CachedCourse[]): any[] {
+  const apiIds = new Set(apiCourses.map((c: any) => c.id));
+  reconcileWithApi(apiIds);
+  const fresh = local.filter((c) => !apiIds.has(c.id));
+  return [...fresh, ...apiCourses];
+}
 
 export default function Home() {
   const { data: coursesResponse, isLoading: loadingCourses } = useCourses();
   const { data: enrolledCourses, isLoading: loadingEnrolled } = useEnrolledCourses();
+  const [localCourses, setLocalCourses] = useState<CachedCourse[]>([]);
 
-  const allCourses = Array.isArray(coursesResponse?.data) ? coursesResponse.data : [];
+  useEffect(() => {
+    setLocalCourses(getCachedCourses());
+  }, []);
+
+  const apiCourses = Array.isArray(coursesResponse?.data) ? coursesResponse.data : [];
+  const allCourses = mergeCourses(apiCourses, localCourses);
   const enrolled = Array.isArray(enrolledCourses) ? enrolledCourses : [];
 
   const searchQuery = useStore((s) => s.searchQuery);

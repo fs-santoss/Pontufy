@@ -4,7 +4,10 @@ import { useRouter } from 'next/navigation';
 import { Sparkles, CheckCircle, ChevronRight, ArrowLeft, AlertCircle } from 'lucide-react';
 import { generateTrainingCourse } from '@/actions/course-generator';
 import type { GenerateTrainingResult } from '@/actions/course-generator';
+import { saveCourse } from '@/lib/local-courses';
 import { mutate } from 'swr';
+
+type SuccessResult = Extract<GenerateTrainingResult, { success: true }>;
 
 export default function AIWizard() {
   const router = useRouter();
@@ -15,7 +18,7 @@ export default function AIWizard() {
 
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [activeChecklist, setActiveChecklist] = useState(0);
-  const [result, setResult] = useState<Extract<GenerateTrainingResult, { success: true }> | null>(null);
+  const [result, setResult] = useState<SuccessResult | null>(null);
 
   const sectorLabels: Record<string, string> = {
     tech: 'Tecnologia e Inovação',
@@ -49,6 +52,16 @@ export default function AIWizard() {
         setStep(1);
         return;
       }
+
+      saveCourse({
+        id: res.course.id,
+        title: res.course.title,
+        description: res.course.description,
+        status: res.course.status,
+        createdAt: res.course.createdAt,
+        cachedAt: Date.now(),
+        lessons: res.course.lessons,
+      });
 
       setResult(res);
       setStep(3);
@@ -230,6 +243,11 @@ export default function AIWizard() {
           <span className="bg-gray-100 text-brand-text font-medium px-3 py-1 rounded-full">
             Créditos restantes: {result.creditsRemaining}
           </span>
+          {!result.persisted && (
+            <span className="bg-amber-50 text-amber-700 font-medium px-3 py-1 rounded-full">
+              Salvo localmente
+            </span>
+          )}
         </div>
 
         {lessons.length > 0 && (
@@ -240,7 +258,7 @@ export default function AIWizard() {
                 <div key={i} className="px-4 py-3 flex justify-between items-center">
                   <span className="text-sm font-medium text-brand-slate">{lesson.title}</span>
                   <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
-                    +{lesson.pointsAwarded} pts
+                    +{lesson.pointsAssigned} pts
                   </span>
                 </div>
               ))}

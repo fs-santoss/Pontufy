@@ -7,6 +7,7 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import type { LanguageModel } from 'ai';
 import { revalidatePath } from 'next/cache';
+import { randomUUID } from 'crypto';
 
 import { auth } from '@/auth';
 import { getTenantDb } from '@/backend/db';
@@ -149,6 +150,21 @@ const inputSchema = z.object({
 
 export type GenerateTrainingInput = z.infer<typeof inputSchema>;
 
+export interface CoursePayload {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  createdAt: string;
+  lessons: Array<{
+    id: string;
+    title: string;
+    type: string;
+    pointsAssigned: number;
+    contentUrl: string | null;
+  }>;
+}
+
 export type GenerateTrainingResult =
   | {
       success: true;
@@ -156,11 +172,8 @@ export type GenerateTrainingResult =
       lessonsCount: number;
       provider: string;
       creditsRemaining: number;
-      course: {
-        title: string;
-        description: string;
-        lessons: { title: string; pointsAwarded: number }[];
-      };
+      persisted: boolean;
+      course: CoursePayload;
     }
   | { success: false; error: string };
 
@@ -196,10 +209,10 @@ export async function generateTrainingCourse(
   }));
 
   if (!tenant) {
-    return { success: false, error: 'Tenant não encontrado. Execute o seed primeiro: POST /api/admin/seed' };
+    return { success: false, error: 'Tenant não encontrado.' };
   }
   if (tenant.aiCredits < 1) {
-    return { success: false, error: `Créditos de IA insuficientes (saldo: ${tenant.aiCredits}). Execute o seed para repor os créditos.` };
+    return { success: false, error: `Créditos de IA insuficientes (saldo: ${tenant.aiCredits}).` };
   }
 
   let generated: { data: GeneratedCourse; provider: string };
@@ -213,12 +226,18 @@ export async function generateTrainingCourse(
     };
   }
 
+  const now = new Date();
   const lessonsToCreate = generated.data.lessons.map((lesson) => ({
     title: lesson.title,
     type: 'text' as const,
     pointsAssigned: Math.max(1, Math.round(lesson.pointsAwarded)),
     contentUrl: lesson.contentSummary,
   }));
+
+  let courseId: string;
+  let lessonRecords: Array<{ id: string; title: string; type: string; pointsAssigned: number; contentUrl: string | null }>;
+  let creditsRemaining: number;
+  let persisted = false;
 
   try {
     const result = await db.$transaction(async (tx: any) => {
@@ -232,51 +251,65 @@ export async function generateTrainingCourse(
 
       const course = await tx.course.create({
         data: {
+          tenantId,
           title: generated.data.courseTitle,
           description: generated.data.courseDescription,
           status: 'published',
           aiCreditsSpent: 1,
           lessons: { create: lessonsToCreate },
         },
-        include: { lessons: { select: { id: true } } },
+        include: {
+          lessons: {
+            select: { id: true, title: true, type: true, pointsAssigned: true, contentUrl: true },
+          },
+        },
       });
 
       const refreshed = await tx.tenant.findUnique({ where: { id: tenantId } });
 
       return {
         courseId: course.id as string,
-        lessonsCount: course.lessons.length as number,
+        lessons: course.lessons as Array<{ id: string; title: string; type: string; pointsAssigned: number; contentUrl: string | null }>,
         creditsRemaining: (refreshed?.aiCredits ?? 0) as number,
       };
     });
 
-    console.log('[course-generator] Curso criado com sucesso:', result.courseId);
+    courseId = result.courseId;
+    lessonRecords = result.lessons;
+    creditsRemaining = result.creditsRemaining;
+    persisted = true;
+    console.log('[course-generator] Curso persistido no DB:', courseId);
+  } catch (err) {
+    if (err instanceof Error && err.message === 'INSUFFICIENT_CREDITS') {
+      return { success: false, error: `Créditos de IA insuficientes (concorrência).` };
+    }
+    console.error('[course-generator] Persistência falhou, retornando dados gerados:', err);
+    courseId = randomUUID();
+    lessonRecords = lessonsToCreate.map((l) => ({ ...l, id: randomUUID() }));
+    creditsRemaining = Math.max(0, (tenant.aiCredits ?? 1) - 1);
+  }
 
+  try {
     revalidatePath('/admin', 'page');
     revalidatePath('/dashboard', 'page');
     revalidatePath('/cursos', 'page');
     revalidatePath('/api/courses', 'page');
+  } catch {}
 
-    return {
-      success: true,
-      courseId: result.courseId,
-      lessonsCount: result.lessonsCount,
-      provider: generated.provider,
-      creditsRemaining: result.creditsRemaining,
-      course: {
-        title: generated.data.courseTitle,
-        description: generated.data.courseDescription,
-        lessons: generated.data.lessons.map((l) => ({
-          title: l.title,
-          pointsAwarded: l.pointsAwarded,
-        })),
-      },
-    };
-  } catch (err) {
-    if (err instanceof Error && err.message === 'INSUFFICIENT_CREDITS') {
-      return { success: false, error: `Créditos de IA insuficientes (concorrência). Tente novamente.` };
-    }
-    console.error('[course-generator] persistência falhou:', err);
-    return { success: false, error: `Falha ao salvar o curso: ${err instanceof Error ? err.message : String(err)}` };
-  }
+  return {
+    success: true,
+    courseId,
+    lessonsCount: lessonRecords.length,
+    provider: generated.provider,
+    creditsRemaining,
+    persisted,
+    course: {
+      id: courseId,
+      title: generated.data.courseTitle,
+      description: generated.data.courseDescription,
+      status: 'published',
+      createdAt: now.toISOString(),
+      lessons: lessonRecords,
+    },
+  };
 }

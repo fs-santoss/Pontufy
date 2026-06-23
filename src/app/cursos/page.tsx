@@ -1,19 +1,43 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useEnrolledCourses } from '@/hooks/useApi';
 import { useStore } from '@/store/useStore';
+import { getCachedCourses, reconcileWithApi, type CachedCourse } from '@/lib/local-courses';
 import { PlayCircle, CheckCircle2, BookOpen, Loader2 } from 'lucide-react';
 
 type FilterStatus = 'all' | 'in_progress' | 'completed' | 'available';
+
+function localToEnrolled(c: CachedCourse) {
+  return {
+    id: c.id,
+    title: c.title,
+    description: c.description,
+    totalLessons: c.lessons.length,
+    completedLessons: 0,
+    progress: 0,
+    status: 'available' as const,
+  };
+}
 
 export default function CoursesPage() {
   const { data: courses, isLoading } = useEnrolledCourses();
   const searchQuery = useStore((s) => s.searchQuery);
   const [filter, setFilter] = useState<FilterStatus>('all');
+  const [localCourses, setLocalCourses] = useState<CachedCourse[]>([]);
 
-  const filtered = (Array.isArray(courses) ? courses : [])
+  useEffect(() => {
+    setLocalCourses(getCachedCourses());
+  }, []);
+
+  const apiCourses = Array.isArray(courses) ? courses : [];
+  const apiIds = new Set(apiCourses.map((c: any) => c.id));
+  reconcileWithApi(apiIds);
+  const freshLocal = localCourses.filter((c) => !apiIds.has(c.id)).map(localToEnrolled);
+  const merged = [...freshLocal, ...apiCourses];
+
+  const filtered = merged
     .filter((c: any) => filter === 'all' || c.status === filter)
     .filter((c: any) => {
       if (!searchQuery) return true;
