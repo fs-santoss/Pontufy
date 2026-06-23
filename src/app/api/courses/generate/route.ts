@@ -4,6 +4,8 @@ import { getTenantDb } from '@/backend/db';
 import { z } from 'zod';
 import { rateLimitCheck } from '@/lib/redis';
 import { broadcastToTenant } from '@/app/api/notifications/stream/route';
+
+export const maxDuration = 60;
 import {
   getGeminiClient,
   getAnthropicClient,

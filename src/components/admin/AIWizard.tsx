@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { Sparkles, CheckCircle, ChevronRight, ArrowLeft, AlertCircle } from 'lucide-react';
 import { generateTrainingCourse } from '@/actions/course-generator';
 import type { GenerateTrainingResult } from '@/actions/course-generator';
+import { mutate } from 'swr';
 
 export default function AIWizard() {
   const router = useRouter();
@@ -51,6 +52,8 @@ export default function AIWizard() {
 
       setResult(res);
       setStep(3);
+
+      mutate((key: string) => typeof key === 'string' && key.startsWith('/api/courses'));
     } catch (err: any) {
       setError(err?.message || 'Erro inesperado ao gerar curso. Verifique o console do servidor.');
       setStep(1);

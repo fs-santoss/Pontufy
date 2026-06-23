@@ -6,6 +6,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import type { LanguageModel } from 'ai';
+import { revalidatePath } from 'next/cache';
 
 import { auth } from '@/auth';
 import { getTenantDb } from '@/backend/db';
@@ -250,6 +251,11 @@ export async function generateTrainingCourse(
     });
 
     console.log('[course-generator] Curso criado com sucesso:', result.courseId);
+
+    revalidatePath('/admin', 'page');
+    revalidatePath('/dashboard', 'page');
+    revalidatePath('/cursos', 'page');
+    revalidatePath('/api/courses', 'page');
 
     return {
       success: true,

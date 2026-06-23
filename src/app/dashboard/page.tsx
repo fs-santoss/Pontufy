@@ -30,7 +30,7 @@ export default function Home() {
         title: allCourses[0].title,
         description: allCourses[0].description || '',
         duration: `${allCourses[0].lessons?.length || 0} aulas`,
-        pointsReward: allCourses[0].lessons?.reduce((s: number, l: any) => s + (l.points || 0), 0) || 0,
+        pointsReward: allCourses[0].lessons?.reduce((s: number, l: any) => s + (l.pointsAssigned || 0), 0) || 0,
         thumbnail: allCourses[0].imageUrl || 'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200',
         modules: allCourses[0].lessons?.length || 0,
       }
@@ -49,7 +49,7 @@ export default function Home() {
   const available = allCourses.slice(1).map((c: any) => ({
     id: c.id,
     title: c.title,
-    pointsReward: c.lessons?.reduce((s: number, l: any) => s + (l.points || 0), 0) || 0,
+    pointsReward: c.lessons?.reduce((s: number, l: any) => s + (l.pointsAssigned || 0), 0) || 0,
     thumbnail: c.imageUrl || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&q=80&w=600',
   }));
 
