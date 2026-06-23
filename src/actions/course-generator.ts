@@ -37,7 +37,6 @@ type ProviderAttempt = { name: string; build: () => LanguageModel };
 function buildProviderChain(): ProviderAttempt[] {
   const chain: ProviderAttempt[] = [];
 
-  // Google Gemini primeiro — plano gratuito (15 RPM, 1M tokens/dia)
   const googleKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (googleKey) {
     const google = createGoogleGenerativeAI({ apiKey: googleKey });
@@ -106,8 +105,8 @@ async function generateCourseWithFallback(
 ): Promise<{ data: GeneratedCourse; provider: string }> {
   const chain = buildProviderChain();
 
-  // Sem nenhum provedor configurado → fallback local para validação
   if (chain.length === 0) {
+    console.log('[course-generator] Nenhum provedor configurado, usando template local');
     return { data: generateLocalFallback(prompt, sector), provider: 'local:template' };
   }
 
@@ -117,6 +116,7 @@ Objetivo do treinamento solicitado pelo RH: ${prompt}`;
   const errors: string[] = [];
   for (const attempt of chain) {
     try {
+      console.log(`[course-generator] Tentando provedor: ${attempt.name}`);
       const { object } = await generateObject({
         model: attempt.build(),
         schema: courseSchema,
@@ -125,14 +125,16 @@ Objetivo do treinamento solicitado pelo RH: ${prompt}`;
         temperature: 0.6,
         maxRetries: 1,
       });
+      console.log(`[course-generator] Sucesso com ${attempt.name}`);
       return { data: object, provider: attempt.name };
     } catch (err) {
-      errors.push(`${attempt.name}: ${err instanceof Error ? err.message : String(err)}`);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[course-generator] Falha em ${attempt.name}:`, msg);
+      errors.push(`${attempt.name}: ${msg}`);
     }
   }
 
-  // Todos os provedores falharam → fallback local
-  console.warn('[generateCourseWithFallback] todos falharam, usando template local:', errors.join(' | '));
+  console.warn('[course-generator] Todos os provedores falharam, usando template local:', errors.join(' | '));
   return { data: generateLocalFallback(prompt, sector), provider: 'local:fallback' };
 }
 
@@ -165,11 +167,17 @@ export async function generateTrainingCourse(
   input: GenerateTrainingInput,
 ): Promise<GenerateTrainingResult> {
   const session = await auth();
+  console.log('[course-generator] session:', JSON.stringify({
+    hasUser: !!session?.user,
+    tenantId: session?.user?.tenantId ?? 'MISSING',
+    role: session?.user?.role ?? 'MISSING',
+  }));
+
   if (!session?.user?.tenantId) {
     return { success: false, error: 'Não autenticado.' };
   }
   if (session.user.role !== 'admin_rh') {
-    return { success: false, error: 'Acesso negado: apenas Gestores de RH podem gerar cursos.' };
+    return { success: false, error: `Acesso negado: seu papel é "${session.user.role}", apenas "admin_rh" pode gerar cursos.` };
   }
   const tenantId = session.user.tenantId;
 
@@ -181,18 +189,23 @@ export async function generateTrainingCourse(
   const db = getTenantDb(tenantId);
 
   const tenant = await db.tenant.findUnique({ where: { id: tenantId } });
+  console.log('[course-generator] tenant:', JSON.stringify({
+    found: !!tenant,
+    aiCredits: tenant?.aiCredits ?? 'N/A',
+  }));
+
   if (!tenant) {
-    return { success: false, error: 'Tenant não encontrado.' };
+    return { success: false, error: 'Tenant não encontrado. Execute o seed primeiro: POST /api/admin/seed' };
   }
   if (tenant.aiCredits < 1) {
-    return { success: false, error: 'Créditos de IA insuficientes.' };
+    return { success: false, error: `Créditos de IA insuficientes (saldo: ${tenant.aiCredits}). Execute o seed para repor os créditos.` };
   }
 
   let generated: { data: GeneratedCourse; provider: string };
   try {
     generated = await generateCourseWithFallback(parsed.data.prompt, parsed.data.sector ?? '');
   } catch (err) {
-    console.error('[generateTrainingCourse] geração falhou:', err);
+    console.error('[course-generator] geração falhou:', err);
     return {
       success: false,
       error: err instanceof Error ? err.message : 'Falha ao gerar o curso.',
@@ -236,6 +249,8 @@ export async function generateTrainingCourse(
       };
     });
 
+    console.log('[course-generator] Curso criado com sucesso:', result.courseId);
+
     return {
       success: true,
       courseId: result.courseId,
@@ -253,9 +268,9 @@ export async function generateTrainingCourse(
     };
   } catch (err) {
     if (err instanceof Error && err.message === 'INSUFFICIENT_CREDITS') {
-      return { success: false, error: 'Créditos de IA insuficientes.' };
+      return { success: false, error: `Créditos de IA insuficientes (concorrência). Tente novamente.` };
     }
-    console.error('[generateTrainingCourse] persistência falhou:', err);
-    return { success: false, error: 'Falha ao salvar o curso gerado.' };
+    console.error('[course-generator] persistência falhou:', err);
+    return { success: false, error: `Falha ao salvar o curso: ${err instanceof Error ? err.message : String(err)}` };
   }
 }

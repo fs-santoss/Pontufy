@@ -44,13 +44,15 @@ export default function AIWizard() {
       });
 
       if (!res.success) {
-        throw new Error(res.error);
+        setError(res.error);
+        setStep(1);
+        return;
       }
 
       setResult(res);
       setStep(3);
     } catch (err: any) {
-      setError(err.message || 'Erro ao gerar curso.');
+      setError(err?.message || 'Erro inesperado ao gerar curso. Verifique o console do servidor.');
       setStep(1);
     }
   };
