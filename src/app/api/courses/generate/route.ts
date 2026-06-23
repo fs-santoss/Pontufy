@@ -8,7 +8,7 @@ import {
   getGeminiClient,
   getAnthropicClient,
   getOpenAIClient,
-  getConfiguredProvider,
+  getAvailableProviders,
   type AIProvider,
 } from '@/lib/ai-clients';
 
@@ -318,24 +318,26 @@ export async function POST(request: Request) {
       }, { status: 202 });
     }
 
-    // ── Synchronous fallback when QStash not configured ──
-    let courseData: CourseGenerated;
-    let provider: AIProvider | null = null;
+    // ── Synchronous generation: cascade across all available providers ──
+    let courseData: CourseGenerated | undefined;
+    const cascadeErrors: string[] = [];
 
-    try {
-      provider = getConfiguredProvider();
-    } catch {
-      // No AI provider configured — use static fallback
-    }
-
-    if (!provider) {
-      courseData = resolveFallback(vertical);
-    } else {
+    for (const provider of getAvailableProviders()) {
       try {
         courseData = await generateWithProvider(provider, prompt, vertical);
-      } catch {
-        courseData = resolveFallback(vertical);
+        break;
+      } catch (e: any) {
+        const msg = e?.message ?? String(e);
+        cascadeErrors.push(`${provider}: ${msg}`);
+        console.warn(`[generate] Provider ${provider} failed, trying next. Reason: ${msg}`);
       }
+    }
+
+    if (!courseData) {
+      if (cascadeErrors.length > 0) {
+        console.error('[generate] All providers failed — using static fallback.', cascadeErrors);
+      }
+      courseData = resolveFallback(vertical);
     }
 
     const lessonsToCreate: { title: string; type: 'text' | 'video'; pointsAssigned: number }[] = [];
