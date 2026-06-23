@@ -11,8 +11,13 @@ function resolveDatabaseUrl(): string {
 
   if (process.env.VERCEL) {
     const tmpDb = '/tmp/dev.db';
-    if (!existsSync(tmpDb) && existsSync(bundledDb)) {
+    const tmpExists = existsSync(tmpDb);
+    const bundledExists = existsSync(bundledDb);
+    if (!tmpExists && bundledExists) {
       copyFileSync(bundledDb, tmpDb);
+      console.log(`[db] Copied bundled DB to ${tmpDb} (cold start)`);
+    } else {
+      console.log(`[db] Using ${tmpDb} (tmpExists=${tmpExists}, bundledExists=${bundledExists})`);
     }
     return `file:${tmpDb}`;
   }

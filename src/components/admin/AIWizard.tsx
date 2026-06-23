@@ -250,7 +250,9 @@ export default function AIWizard() {
 
         <div className="flex justify-end">
           <button
-            onClick={() => router.push('/admin')}
+            onClick={() => {
+              window.location.href = '/admin';
+            }}
             className="flex items-center gap-2 bg-gradient-pontufy text-emerald-900 font-bold px-8 py-3 rounded-lg shadow-sm hover:shadow-md hover:scale-[1.02] transition-all"
           >
             Voltar ao Painel

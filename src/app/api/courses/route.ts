@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getSessionContext } from '@/backend/session';
 import { getTenantDb } from '@/backend/db';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(request: Request) {
   try {
     const { tenantId } = await getSessionContext();
@@ -23,12 +26,17 @@ export async function GET(request: Request) {
       db.course.count({ where: { status: 'published' } }),
     ]);
 
-    return NextResponse.json({ data: courses, total, page, limit, totalPages: Math.ceil(total / limit) });
+    console.log(`[GET /api/courses] tenantId=${tenantId} returned=${courses.length} total=${total}`);
+
+    return NextResponse.json(
+      { data: courses, total, page, limit, totalPages: Math.ceil(total / limit) },
+      { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } },
+    );
   } catch (error: any) {
     if (error.message === 'Não autenticado.') {
-      return NextResponse.json([], { status: 401 });
+      return NextResponse.json({ data: [], total: 0, error: 'Não autenticado.' }, { status: 401 });
     }
     console.error('GET /api/courses:', error);
-    return NextResponse.json([], { status: 500 });
+    return NextResponse.json({ data: [], total: 0, error: String(error?.message ?? error) }, { status: 500 });
   }
 }

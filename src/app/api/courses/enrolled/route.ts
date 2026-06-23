@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getSessionContext } from '@/backend/session';
 import { getTenantDb, prisma } from '@/backend/db';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET() {
   try {
     const { tenantId, userId } = await getSessionContext();
@@ -42,7 +45,11 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json(enriched);
+    console.log(`[GET /api/courses/enrolled] tenantId=${tenantId} userId=${userId} returned=${enriched.length}`);
+
+    return NextResponse.json(enriched, {
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+    });
   } catch (error: any) {
     if (error.message === 'Não autenticado.') {
       return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });

@@ -7,7 +7,7 @@ import MetricCard from '@/components/admin/MetricCard';
 import AISelectionTable from '@/components/admin/AISelectionTable';
 import RewardToggleRow from '@/components/admin/RewardToggleRow';
 import AnalyticsDashboard from '@/components/admin/AnalyticsDashboard';
-import { LayoutDashboard, LogOut, Sparkles, Loader2, BarChart3, ArrowLeft, Menu, X } from 'lucide-react';
+import { LayoutDashboard, LogOut, Sparkles, Loader2, BarChart3, ArrowLeft, Menu, X, RefreshCw } from 'lucide-react';
 
 type AdminView = 'overview' | 'analytics';
 
@@ -19,15 +19,19 @@ export default function AdminDashboardClient() {
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState<AdminView>('overview');
   const [navOpen, setNavOpen] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    setLoading(true);
+    const ts = Date.now();
     Promise.all([
-      fetch('/api/admin/tenant/branding').then((r) => r.json()),
-      fetch('/api/admin/analytics').then((r) => r.json()),
-      fetch('/api/courses?limit=50').then((r) => r.json()),
-      fetch('/api/rewards?limit=50').then((r) => r.json()),
+      fetch(`/api/admin/tenant/branding?t=${ts}`, { cache: 'no-store' }).then((r) => r.json()),
+      fetch(`/api/admin/analytics?t=${ts}`, { cache: 'no-store' }).then((r) => r.json()),
+      fetch(`/api/courses?limit=50&t=${ts}`, { cache: 'no-store' }).then((r) => r.json()),
+      fetch(`/api/rewards?limit=50&t=${ts}`, { cache: 'no-store' }).then((r) => r.json()),
     ])
       .then(([tenantData, analyticsData, coursesData, rewardsData]) => {
+        console.log('[AdminDashboard] courses received:', coursesData?.data?.length ?? 0, coursesData);
         setTenant(tenantData);
         setAnalytics(analyticsData);
         setCourses(
@@ -51,7 +55,7 @@ export default function AdminDashboardClient() {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [reloadKey]);
 
   const summary = analytics?.summary || {};
   const metrics = [
@@ -187,6 +191,14 @@ export default function AdminDashboardClient() {
               Bem-vindo ao centro de comando da {tenant?.name || 'empresa'}.
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="hidden sm:flex items-center gap-2 text-sm font-semibold text-brand-text hover:text-brand-slate px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+            title="Atualizar dados do painel"
+          >
+            <RefreshCw size={16} /> Atualizar
+          </button>
         </header>
 
         {activeView === 'overview' && (
