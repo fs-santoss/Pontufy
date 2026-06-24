@@ -3,10 +3,15 @@ import { getSessionContext } from '@/backend/session';
 import { getTenantDb } from '@/backend/db';
 import { Redis } from '@upstash/redis';
 
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL || 'mock_url',
-  token: process.env.UPSTASH_REDIS_REST_TOKEN || 'mock_token',
-});
+let _redis: Redis | null = null;
+function getRedis(): Redis | null {
+  if (_redis) return _redis;
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+  _redis = new Redis({ url, token });
+  return _redis;
+}
 
 const CACHE_TTL_SECONDS = 900; // 15 minutos
 
@@ -18,16 +23,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Acesso Restrito: Apenas Gestores de RH.' }, { status: 403 });
     }
 
+    const redis = getRedis();
     const cacheKey = `analytics:engagement:${tenantId}`;
 
-    // 1. Tentar ler do Cache (ResiliÃªncia)
-    try {
-      const cachedData = await redis.get(cacheKey);
-      if (cachedData) {
-        return NextResponse.json({ success: true, data: cachedData, source: 'cache' });
+    if (redis) {
+      try {
+        const cachedData = await redis.get(cacheKey);
+        if (cachedData) {
+          return NextResponse.json({ success: true, data: cachedData, source: 'cache' });
+        }
+      } catch (cacheError) {
+        console.warn('[ANALYTICS] Falha ao ler cache Redis, fallback para DB.', cacheError);
       }
-    } catch (cacheError) {
-      console.warn('[ANALYTICS] Falha ao ler cache do Redis, executando fallback para Banco de Dados.', cacheError);
     }
 
     // 2. Cache Miss: Executar Query Pesada no Banco
@@ -66,11 +73,12 @@ export async function GET(request: Request) {
       generatedAt: new Date().toISOString()
     };
 
-    // 3. Hidratar o Cache
-    try {
-      await redis.set(cacheKey, analyticsPayload, { ex: CACHE_TTL_SECONDS });
-    } catch (cacheError) {
-      console.error('[ANALYTICS] Falha ao gravar no cache do Redis.', cacheError);
+    if (redis) {
+      try {
+        await redis.set(cacheKey, analyticsPayload, { ex: CACHE_TTL_SECONDS });
+      } catch (cacheError) {
+        console.error('[ANALYTICS] Falha ao gravar no cache Redis.', cacheError);
+      }
     }
 
     return NextResponse.json({ success: true, data: analyticsPayload, source: 'database' });
