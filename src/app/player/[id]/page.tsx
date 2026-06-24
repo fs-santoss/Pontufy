@@ -1,5 +1,5 @@
 'use client';
-import { useState, use } from 'react';
+import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 
 import VideoPlayer from '@/components/player/VideoPlayer';
@@ -7,6 +7,7 @@ import SidebarModules from '@/components/player/SidebarModules';
 import QuizModule from '@/components/player/QuizModule';
 import PointsCelebration from '@/components/gamification/PointsCelebration';
 import { useCourse, triggerLessonCompletion } from '@/hooks/useApi';
+import { getCachedCourses } from '@/lib/local-courses';
 import { Loader2, Download } from 'lucide-react';
 
 interface Lesson {
@@ -20,8 +21,9 @@ interface Lesson {
 
 export default function CoursePlayerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { data: course, isLoading, mutate } = useCourse(id);
-
+  const { data: apiCourse, error: apiError, isLoading, mutate } = useCourse(id);
+  const [localCourse, setLocalCourse] = useState<any>(null);
+  const [localChecked, setLocalChecked] = useState(false);
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
   const [earnedPoints, setEarnedPoints] = useState(0);
@@ -29,7 +31,30 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
   const [activeTab, setActiveTab] = useState<'overview' | 'notes' | 'materials'>('overview');
   const [isDownloading, setIsDownloading] = useState(false);
 
-  if (isLoading || !course) {
+  useEffect(() => {
+    const cached = getCachedCourses().find((c) => c.id === id);
+    if (cached) {
+      setLocalCourse({
+        id: cached.id,
+        title: cached.title,
+        description: cached.description,
+        lessons: cached.lessons.map((l) => ({
+          id: l.id,
+          title: l.title,
+          type: l.type,
+          contentUrl: l.contentUrl,
+          points: l.pointsAssigned,
+          completed: false,
+        })),
+        quiz: null,
+      });
+    }
+    setLocalChecked(true);
+  }, [id]);
+
+  const course = apiCourse && !apiCourse.error ? apiCourse : localCourse;
+
+  if ((isLoading && !localChecked) || (!course && !apiError && !localChecked)) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-72px)]">
         <Loader2 className="animate-spin text-emerald-500" size={48} />
@@ -37,7 +62,7 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
     );
   }
 
-  if (course.error) {
+  if (!course) {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-72px)] gap-4">
         <p className="text-brand-slate text-lg font-semibold">Curso não encontrado.</p>
