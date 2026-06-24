@@ -69,10 +69,53 @@ Regras:
 - Entregue de 3 a 8 aulas, em ordem didática (do fundamental ao avançado).
 - "contentSummary" deve descrever o que a aula ensina em 2 a 4 frases objetivas, sem markdown.
 - "pointsAwarded" é um inteiro: aulas introdutórias valem menos, avançadas valem mais.
+- Se material de referência for fornecido, BASEIE o conteúdo do curso nele. Extraia tópicos, conceitos e estrutura do material.
 - Responda exclusivamente no schema estruturado solicitado.`;
 
-function generateLocalFallback(prompt: string, sector: string): GeneratedCourse {
+function generateLocalFallback(prompt: string, sector: string, referenceContent?: string): GeneratedCourse {
   const sectorName = sector || 'geral';
+
+  if (referenceContent && referenceContent.length > 50) {
+    const paragraphs = referenceContent
+      .split(/\n{2,}|\r\n{2,}/)
+      .map((p) => p.trim())
+      .filter((p) => p.length > 30);
+
+    const chunks: string[][] = [];
+    const chunkSize = Math.max(1, Math.ceil(paragraphs.length / 5));
+    for (let i = 0; i < paragraphs.length; i += chunkSize) {
+      chunks.push(paragraphs.slice(i, i + chunkSize));
+    }
+
+    const lessonCount = Math.min(Math.max(3, chunks.length), 6);
+    const titles = [
+      'Fundamentos e Introdução',
+      'Conceitos Principais',
+      'Desenvolvimento e Aplicação',
+      'Aprofundamento Prático',
+      'Estudos de Caso',
+      'Avaliação e Consolidação',
+    ];
+
+    const lessons = Array.from({ length: lessonCount }, (_, i) => {
+      const chunk = chunks[i] || [];
+      const summary = chunk.length > 0
+        ? chunk.slice(0, 3).join(' ').slice(0, 400)
+        : `Conteúdo sobre ${prompt.slice(0, 80)} aplicado ao setor de ${sectorName}.`;
+      return {
+        title: titles[i] || `Módulo ${i + 1}`,
+        contentSummary: summary,
+        pointsAwarded: 10 + i * 10,
+      };
+    });
+
+    return {
+      courseTitle: `Treinamento: ${prompt.slice(0, 60)}`,
+      courseDescription: `Curso baseado no material de referência fornecido sobre "${prompt.slice(0, 100)}" para o setor de ${sectorName}. O conteúdo foi estruturado a partir dos documentos enviados.`,
+      lessons,
+    };
+  }
+
   return {
     courseTitle: `Treinamento: ${prompt.slice(0, 60)}`,
     courseDescription: `Curso gerado automaticamente sobre "${prompt.slice(0, 100)}" para o setor de ${sectorName}. Este conteúdo foi criado como modelo inicial e pode ser editado pelo gestor de RH.`,
@@ -104,16 +147,21 @@ function generateLocalFallback(prompt: string, sector: string): GeneratedCourse 
 async function generateCourseWithFallback(
   prompt: string,
   sector: string,
+  referenceContent?: string,
 ): Promise<{ data: GeneratedCourse; provider: string }> {
   const chain = buildProviderChain();
 
   if (chain.length === 0) {
     console.log('[course-generator] Nenhum provedor configurado, usando template local');
-    return { data: generateLocalFallback(prompt, sector), provider: 'local:template' };
+    return { data: generateLocalFallback(prompt, sector, referenceContent), provider: 'local:template' };
   }
 
-  const userPrompt = `Setor/Vertical: ${sector || 'geral'}.
+  let userPrompt = `Setor/Vertical: ${sector || 'geral'}.
 Objetivo do treinamento solicitado pelo RH: ${prompt}`;
+
+  if (referenceContent) {
+    userPrompt += `\n\n--- MATERIAL DE REFERÊNCIA FORNECIDO ---\n${referenceContent.slice(0, 30000)}\n--- FIM DO MATERIAL ---\n\nIMPORTANTE: Baseie o conteúdo do curso no material acima. Extraia os tópicos principais, organize-os didaticamente e gere as aulas com base real no conteúdo fornecido.`;
+  }
 
   const errors: string[] = [];
   for (const attempt of chain) {
@@ -137,7 +185,7 @@ Objetivo do treinamento solicitado pelo RH: ${prompt}`;
   }
 
   console.warn('[course-generator] Todos os provedores falharam, usando template local:', errors.join(' | '));
-  return { data: generateLocalFallback(prompt, sector), provider: 'local:fallback' };
+  return { data: generateLocalFallback(prompt, sector, referenceContent), provider: 'local:fallback' };
 }
 
 const inputSchema = z.object({
@@ -146,6 +194,7 @@ const inputSchema = z.object({
     .min(10, 'Descreva o objetivo do treinamento (mínimo de 10 caracteres).')
     .max(2000),
   sector: z.string().max(60).optional(),
+  referenceContent: z.string().max(60000).optional(),
 });
 
 export type GenerateTrainingInput = z.infer<typeof inputSchema>;
@@ -217,7 +266,7 @@ export async function generateTrainingCourse(
 
   let generated: { data: GeneratedCourse; provider: string };
   try {
-    generated = await generateCourseWithFallback(parsed.data.prompt, parsed.data.sector ?? '');
+    generated = await generateCourseWithFallback(parsed.data.prompt, parsed.data.sector ?? '', parsed.data.referenceContent);
   } catch (err) {
     console.error('[course-generator] geração falhou:', err);
     return {
