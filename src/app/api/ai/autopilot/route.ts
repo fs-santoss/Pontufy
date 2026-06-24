@@ -25,7 +25,7 @@ export async function POST(req: Request) {
       maxOutputTokens: 500,
     });
 
-    return result.toDataStreamResponse();
+    return result.toTextStreamResponse();
   } catch (error: any) {
     if (error.message === 'Não autenticado.') {
       return new NextResponse('Unauthorized', { status: 401 });
