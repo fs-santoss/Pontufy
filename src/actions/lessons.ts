@@ -1,7 +1,7 @@
-'use server';
+﻿'use server';
 
 import { getSessionContext } from '@/backend/session';
-import { prisma, getTenantPrisma } from '@/backend/db';
+import { prisma, getTenantDb } from '@/backend/db';
 
 export async function completeLessonAndAwardPoints(lessonId: string): Promise<{
   success: boolean;
@@ -13,9 +13,9 @@ export async function completeLessonAndAwardPoints(lessonId: string): Promise<{
   try {
     const { tenantId, userId } = await getSessionContext();
 
-    if (!lessonId) return { success: false, error: 'lessonId é obrigatório' };
+    if (!lessonId) return { success: false, error: 'lessonId Ã© obrigatÃ³rio' };
 
-    const db = getTenantPrisma(tenantId);
+    const db = getTenantDb(tenantId);
 
     const lesson = await db.lesson.findFirst({ 
       where: { 
@@ -24,7 +24,7 @@ export async function completeLessonAndAwardPoints(lessonId: string): Promise<{
       } 
     });
     if (!lesson) {
-      return { success: false, error: 'Aula não encontrada no escopo da empresa.' };
+      return { success: false, error: 'Aula nÃ£o encontrada no escopo da empresa.' };
     }
 
     // Idempotency: return current balance if already completed
@@ -36,7 +36,7 @@ export async function completeLessonAndAwardPoints(lessonId: string): Promise<{
       const user = await db.user.findUnique({ where: { id: userId } });
       return {
         success: true,
-        message: 'Aula já concluída anteriormente.',
+        message: 'Aula jÃ¡ concluÃ­da anteriormente.',
         newBalance: user?.pointsBalance ?? 0,
         alreadyCompleted: true,
       };
@@ -63,7 +63,7 @@ export async function completeLessonAndAwardPoints(lessonId: string): Promise<{
           tenantId,
           type: 'gain',
           pointsAmount: pointsToAward,
-          description: `Conclusão da Aula: ${lesson.title}`,
+          description: `ConclusÃ£o da Aula: ${lesson.title}`,
         },
       });
 
@@ -72,12 +72,12 @@ export async function completeLessonAndAwardPoints(lessonId: string): Promise<{
 
     return {
       success: true,
-      message: `Você ganhou +${pointsToAward} pontos!`,
+      message: `VocÃª ganhou +${pointsToAward} pontos!`,
       newBalance: result.updatedUser.pointsBalance,
     };
   } catch (error: any) {
-    if (error.message === 'Não autenticado.') {
-      return { success: false, error: 'Não autenticado.' };
+    if (error.message === 'NÃ£o autenticado.') {
+      return { success: false, error: 'NÃ£o autenticado.' };
     }
     console.error('Erro ao completar aula:', error);
     return { success: false, error: 'Falha interna no servidor ao concluir aula.' };

@@ -1,56 +1,14 @@
 import { PrismaClient } from '@prisma/client';
-import { resolve } from 'path';
-import { existsSync, copyFileSync, mkdirSync } from 'fs';
-
-function resolveDatabaseUrl(): string {
-  if (process.env.DATABASE_URL && !process.env.DATABASE_URL.startsWith('file:')) {
-    return process.env.DATABASE_URL;
-  }
-
-  const bundledDb = resolve(process.cwd(), 'prisma/dev.db');
-
-  if (process.env.VERCEL) {
-    const tmpDb = '/tmp/dev.db';
-    const tmpExists = existsSync(tmpDb);
-    const bundledExists = existsSync(bundledDb);
-    if (!tmpExists && bundledExists) {
-      copyFileSync(bundledDb, tmpDb);
-      console.log(`[db] Copied bundled DB to ${tmpDb} (cold start)`);
-    } else {
-      console.log(`[db] Using ${tmpDb} (tmpExists=${tmpExists}, bundledExists=${bundledExists})`);
-    }
-    return `file:${tmpDb}`;
-  }
-
-  return `file:${bundledDb}`;
-}
-
-if (!process.env.DATABASE_URL || process.env.DATABASE_URL === 'file:./dev.db') {
-  process.env.DATABASE_URL = resolveDatabaseUrl();
-}
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
-  prismaRead: PrismaClient | undefined;
 };
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+export const prisma = globalForPrisma.prisma ?? new PrismaClient({
+  log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+});
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
-
-function createReadReplica(): PrismaClient {
-  const readUrl = process.env.DATABASE_READ_URL;
-  if (!readUrl) return prisma;
-
-  if (!globalForPrisma.prismaRead) {
-    globalForPrisma.prismaRead = new PrismaClient({
-      datasourceUrl: readUrl,
-    });
-  }
-  return globalForPrisma.prismaRead;
-}
-
-export const prismaRead = createReadReplica();
 
 // Operation classification shared across model branches.
 const READ_OPS = [

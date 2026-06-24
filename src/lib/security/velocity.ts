@@ -1,4 +1,4 @@
-import { getTenantPrisma } from '@/backend/db';
+﻿import { getTenantDb } from '@/backend/db';
 
 /**
  * Velocity Anti-Fraud Middleware
@@ -9,7 +9,7 @@ export async function checkVelocityLimit(
   tenantId: string,
   minSecondsThreshold: number = 20
 ): Promise<{ allowed: boolean; reason?: string }> {
-  const db = getTenantPrisma(tenantId);
+  const db = getTenantDb(tenantId);
 
   // Fetch the most recent point gain for this user
   const lastGain = await db.pointsLedger.findFirst({

@@ -1,7 +1,7 @@
-'use server';
+﻿'use server';
 
 import { getSessionContext } from '@/backend/session';
-import { getTenantPrisma } from '@/backend/db';
+import { getTenantDb } from '@/backend/db';
 import { acquireLock, releaseLock } from '@/lib/redis/mutex';
 
 export async function redeemRewardAction(rewardId: string): Promise<{
@@ -14,31 +14,31 @@ export async function redeemRewardAction(rewardId: string): Promise<{
   try {
     const { tenantId, userId } = await getSessionContext();
 
-    if (!rewardId) return { success: false, error: "rewardId é obrigatório" };
+    if (!rewardId) return { success: false, error: "rewardId Ã© obrigatÃ³rio" };
 
     const lockKey = `redeem:${tenantId}:${userId}`;
     const lockAcquired = await acquireLock(lockKey, 10);
     
     if (!lockAcquired) {
-      return { success: false, error: "Transação já em andamento. Aguarde." };
+      return { success: false, error: "TransaÃ§Ã£o jÃ¡ em andamento. Aguarde." };
     }
 
     try {
-      const db = getTenantPrisma(tenantId);
+      const db = getTenantDb(tenantId);
 
       const reward = await db.reward.findUnique({
         where: { id: rewardId }
       });
 
       if (!reward || !reward.isActive) {
-        return { success: false, error: "Recompensa indisponível ou inativa." };
+        return { success: false, error: "Recompensa indisponÃ­vel ou inativa." };
       }
 
       const user = await db.user.findUnique({
         where: { id: userId }
       });
 
-      if (!user) return { success: false, error: "Usuário não encontrado." };
+      if (!user) return { success: false, error: "UsuÃ¡rio nÃ£o encontrado." };
 
       if (user.pointsBalance < reward.pricePoints) {
         return { 
@@ -71,7 +71,7 @@ export async function redeemRewardAction(rewardId: string): Promise<{
 
       return { 
         success: true, 
-        message: "Resgate concluído com sucesso!",
+        message: "Resgate concluÃ­do com sucesso!",
         newBalance: result.pointsBalance,
         affiliateUrl: urlWithTracking
       };

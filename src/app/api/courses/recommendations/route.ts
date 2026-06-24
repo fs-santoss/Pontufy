@@ -1,14 +1,14 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { getSessionContext } from '@/backend/session';
-import { getTenantPrisma } from '@/backend/db';
+import { getTenantDb } from '@/backend/db';
 
 export async function GET(request: Request) {
   try {
     const { tenantId, userId } = await getSessionContext();
 
-    const db = getTenantPrisma(tenantId);
+    const db = getTenantDb(tenantId);
 
-    // 1. Identificar quais aulas o usuário já completou
+    // 1. Identificar quais aulas o usuÃ¡rio jÃ¡ completou
     const userCompletions = await db.lessonCompletion.findMany({
       where: { userId },
       select: { lessonId: true }
@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     
     const completedLessonIds = userCompletions.map(c => c.lessonId);
 
-    // 2. Buscar cursos ativos no Tenant que possuam aulas que o usuário AINDA NÃO completou
+    // 2. Buscar cursos ativos no Tenant que possuam aulas que o usuÃ¡rio AINDA NÃƒO completou
     // Ordenar pelos mais recentes (Fallback do algoritmo base)
     const recommendedCourses = await db.course.findMany({
       where: {
@@ -42,7 +42,7 @@ export async function GET(request: Request) {
       orderBy: {
         createdAt: 'desc'
       },
-      take: 5 // Recomendar no máximo 5 cursos
+      take: 5 // Recomendar no mÃ¡ximo 5 cursos
     });
 
     return NextResponse.json({
@@ -51,8 +51,8 @@ export async function GET(request: Request) {
     });
 
   } catch (error: any) {
-    if (error.message === 'Não autenticado.') {
-      return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
+    if (error.message === 'NÃ£o autenticado.') {
+      return NextResponse.json({ error: 'NÃ£o autenticado.' }, { status: 401 });
     }
     console.error('[RECOMMENDATIONS] Erro ao buscar cursos recomendados:', error);
     

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSessionContext } from '@/backend/session';
-import { getTenantDb, prismaRead } from '@/backend/db';
+import { getTenantDb } from '@/backend/db';
 
 export async function GET() {
   try {
@@ -18,18 +18,18 @@ export async function GET() {
     });
     const userIds = users.map((u: any) => u.id);
 
-    const completions = await prismaRead.lessonCompletion.findMany({
+    const completions = await db.lessonCompletion.findMany({
       where: { userId: { in: userIds } },
       select: { createdAt: true },
       orderBy: { createdAt: 'asc' },
     });
 
-    const gains = await prismaRead.pointsLedger.findMany({
+    const gains = await db.pointsLedger.findMany({
       where: { tenantId, type: 'gain' },
       select: { pointsAmount: true, timestamp: true },
     });
 
-    const losses = await prismaRead.pointsLedger.findMany({
+    const losses = await db.pointsLedger.findMany({
       where: { tenantId, type: 'loss' },
       select: { pointsAmount: true },
     });

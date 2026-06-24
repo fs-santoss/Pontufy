@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { getSessionContext } from '@/backend/session';
-import { getTenantPrisma } from '@/backend/db';
+import { getTenantDb } from '@/backend/db';
 import { Redis } from '@upstash/redis';
 
 const redis = new Redis({
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
 
     const cacheKey = `analytics:engagement:${tenantId}`;
 
-    // 1. Tentar ler do Cache (Resiliência)
+    // 1. Tentar ler do Cache (ResiliÃªncia)
     try {
       const cachedData = await redis.get(cacheKey);
       if (cachedData) {
@@ -31,9 +31,9 @@ export async function GET(request: Request) {
     }
 
     // 2. Cache Miss: Executar Query Pesada no Banco
-    const db = getTenantPrisma(tenantId);
+    const db = getTenantDb(tenantId);
 
-    // Agregação 1: Total de pontos distribuídos neste mês (Gain)
+    // AgregaÃ§Ã£o 1: Total de pontos distribuÃ­dos neste mÃªs (Gain)
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
@@ -50,7 +50,7 @@ export async function GET(request: Request) {
       }
     });
 
-    // Agregação 2: Usuários ativos (que completaram ao menos 1 aula no mês)
+    // AgregaÃ§Ã£o 2: UsuÃ¡rios ativos (que completaram ao menos 1 aula no mÃªs)
     const activeUsersResult = await db.lessonCompletion.groupBy({
       by: ['userId'],
       where: {
@@ -76,10 +76,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: true, data: analyticsPayload, source: 'database' });
 
   } catch (error: any) {
-    if (error.message === 'Não autenticado.') {
-      return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
+    if (error.message === 'NÃ£o autenticado.') {
+      return NextResponse.json({ error: 'NÃ£o autenticado.' }, { status: 401 });
     }
-    console.error('[ANALYTICS] Erro Crítico na API de Engajamento:', error);
+    console.error('[ANALYTICS] Erro CrÃ­tico na API de Engajamento:', error);
     return NextResponse.json({ error: 'Falha interna do servidor.' }, { status: 500 });
   }
 }
