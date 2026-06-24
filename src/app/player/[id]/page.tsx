@@ -123,7 +123,18 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
 
     setIsCompleting(true);
     try {
-      const res = await triggerLessonCompletion(activeLesson.id);
+      const res = await triggerLessonCompletion(activeLesson.id, {
+        courseId: course.id,
+        courseTitle: course.title,
+        courseDescription: course.description,
+        lessons: lessons.map((l) => ({
+          id: l.id,
+          title: l.title,
+          type: l.type,
+          contentUrl: l.contentUrl,
+          points: l.points,
+        })),
+      });
 
       if (res.success) {
         setEarnedPoints(activeLesson.points);

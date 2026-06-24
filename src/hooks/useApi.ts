@@ -48,7 +48,15 @@ export function usePointsHistory() {
   });
 }
 
-export async function triggerLessonCompletion(lessonId: string): Promise<{
+export async function triggerLessonCompletion(
+  lessonId: string,
+  coursePayload?: {
+    courseId: string;
+    courseTitle: string;
+    courseDescription?: string;
+    lessons: { id: string; title: string; type: string; contentUrl?: string; points: number }[];
+  },
+): Promise<{
   success: boolean;
   newBalance?: number;
   alreadyCompleted?: boolean;
@@ -58,7 +66,7 @@ export async function triggerLessonCompletion(lessonId: string): Promise<{
   const res = await fetch('/api/lessons/complete', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ lessonId }),
+    body: JSON.stringify({ lessonId, coursePayload }),
   });
   const data = await res.json();
   if (data.success && data.newBalance !== undefined) {

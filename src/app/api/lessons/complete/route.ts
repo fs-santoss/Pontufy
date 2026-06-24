@@ -2,18 +2,54 @@ import { NextResponse } from 'next/server';
 import { getSessionContext } from '@/backend/session';
 import { prisma, getTenantDb } from '@/backend/db';
 
+const MAX_POINTS_PER_LESSON = 200;
+
 export async function POST(request: Request) {
   try {
     const { tenantId, userId } = await getSessionContext();
-    const { lessonId } = await request.json();
+    const { lessonId, coursePayload } = await request.json();
 
     if (!lessonId) return NextResponse.json({ error: 'lessonId é obrigatório' }, { status: 400 });
 
     const db = getTenantDb(tenantId);
 
-    // findFirst (not findUnique) so the tenant extension can scope through the
-    // parent Course relation — prevents completing lessons from other tenants.
-    const lesson = await db.lesson.findFirst({ where: { id: lessonId } });
+    let lesson = await db.lesson.findFirst({ where: { id: lessonId } });
+
+    if (!lesson && coursePayload) {
+      const points = Math.min(
+        Math.max(0, Math.round(Number(coursePayload.lessons?.find((l: any) => l.id === lessonId)?.points) || 0)),
+        MAX_POINTS_PER_LESSON,
+      );
+      await prisma.$transaction(async (tx: any) => {
+        await tx.course.upsert({
+          where: { id: coursePayload.courseId },
+          update: {},
+          create: {
+            id: coursePayload.courseId,
+            tenantId,
+            title: String(coursePayload.courseTitle || 'Curso').slice(0, 255),
+            description: coursePayload.courseDescription ? String(coursePayload.courseDescription).slice(0, 2000) : null,
+            status: 'published',
+          },
+        });
+        for (const l of coursePayload.lessons || []) {
+          await tx.lesson.upsert({
+            where: { id: l.id },
+            update: {},
+            create: {
+              id: l.id,
+              courseId: coursePayload.courseId,
+              title: String(l.title || 'Aula').slice(0, 255),
+              type: l.type || 'video',
+              contentUrl: l.contentUrl || null,
+              pointsAssigned: Math.min(Math.max(0, Math.round(Number(l.points) || 0)), MAX_POINTS_PER_LESSON),
+            },
+          });
+        }
+      });
+      lesson = await db.lesson.findFirst({ where: { id: lessonId } });
+    }
+
     if (!lesson) {
       return NextResponse.json({ error: 'Aula não encontrada no escopo da empresa.' }, { status: 404 });
     }
