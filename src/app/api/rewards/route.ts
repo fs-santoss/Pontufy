@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSessionContext } from '@/backend/session';
 import { getTenantDb } from '@/backend/db';
-import { cacheGet, cacheSet, cacheDelete } from '@/lib/redis';
+import { cacheGet, cacheSet, cacheDeletePattern } from '@/lib/redis';
 
 export async function GET(request: Request) {
   try {
@@ -65,7 +65,7 @@ export async function PATCH(request: Request) {
       data: { isActive },
     });
 
-    await cacheDelete(`rewards:${tenantId}:*`).catch(() => {});
+    await cacheDeletePattern(`rewards:${tenantId}:*`).catch(() => {});
 
     return NextResponse.json({ success: true, reward });
   } catch (error: any) {

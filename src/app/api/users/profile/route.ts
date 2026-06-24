@@ -2,13 +2,14 @@ import { NextResponse } from 'next/server';
 import { scrypt, randomBytes } from 'crypto';
 import { promisify } from 'util';
 import { getSessionContext } from '@/backend/session';
-import { prisma } from '@/backend/db';
+import { getTenantDb } from '@/backend/db';
 
 const scryptAsync = promisify(scrypt);
 
 export async function PATCH(request: Request) {
   try {
-    const { userId } = await getSessionContext();
+    const { userId, tenantId } = await getSessionContext();
+    const db = getTenantDb(tenantId);
     const body = await request.json();
     const { name, currentPassword, newPassword } = body;
 
@@ -30,7 +31,7 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ error: 'Nova senha deve ter pelo menos 6 caracteres.' }, { status: 400 });
       }
 
-      const user = await prisma.user.findUnique({ where: { id: userId }, select: { passwordHash: true } });
+      const user = await db.user.findUnique({ where: { id: userId }, select: { passwordHash: true } });
       if (!user?.passwordHash) {
         return NextResponse.json({ error: 'Conta sem senha configurada.' }, { status: 400 });
       }
@@ -51,7 +52,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Nenhum campo para atualizar.' }, { status: 400 });
     }
 
-    const updated = await prisma.user.update({
+    const updated = await db.user.update({
       where: { id: userId },
       data,
       select: { name: true, email: true, role: true },

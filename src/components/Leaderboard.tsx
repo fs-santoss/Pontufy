@@ -18,7 +18,6 @@ export default async function Leaderboard() {
   let users: { id: string; name: string; pointsBalance: number }[] = [];
   try {
     users = await db.user.findMany({
-      where: { tenantId },
       orderBy: { pointsBalance: 'desc' },
       take: 5,
       select: {

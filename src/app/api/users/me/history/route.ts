@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getSessionContext } from '@/backend/session';
-import { prisma } from '@/backend/db';
+import { getTenantDb } from '@/backend/db';
 
 export async function GET() {
   try {
-    const { userId } = await getSessionContext();
+    const { userId, tenantId } = await getSessionContext();
+    const db = getTenantDb(tenantId);
 
-    const ledger = await prisma.pointsLedger.findMany({
+    const ledger = await db.pointsLedger.findMany({
       where: { userId },
       orderBy: { timestamp: 'desc' },
       take: 50,

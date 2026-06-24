@@ -7,6 +7,9 @@ type Listener = {
   controller: ReadableStreamDefaultController;
 };
 
+// LIMITATION: module-level state is per-instance on serverless — broadcasts
+// from other API routes (generate, queue-worker) won't reach SSE listeners.
+// A Redis Pub/Sub channel is needed for cross-instance delivery.
 const listeners: Listener[] = [];
 
 export function broadcastToTenant(tenantId: string, event: string, data: any) {

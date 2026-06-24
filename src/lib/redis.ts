@@ -43,6 +43,22 @@ export async function cacheDelete(key: string): Promise<void> {
   } catch {}
 }
 
+export async function cacheDeletePattern(pattern: string): Promise<void> {
+  const client = getRedis();
+  if (!client) return;
+
+  try {
+    let cursor = '0';
+    do {
+      const [next, keys]: [string, string[]] = await client.scan(Number(cursor), { match: pattern, count: 100 });
+      cursor = String(next);
+      if (keys.length > 0) {
+        await client.del(...keys);
+      }
+    } while (cursor !== '0');
+  } catch {}
+}
+
 export async function rateLimitCheck(
   key: string,
   maxRequests: number,

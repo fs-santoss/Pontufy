@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getSessionContext } from '@/backend/session';
-import { prisma } from '@/backend/db';
+import { getTenantDb } from '@/backend/db';
 
 export async function GET() {
   try {
     const { tenantId } = await getSessionContext();
+    const db = getTenantDb(tenantId);
 
-    const tenant = await prisma.tenant.findUnique({
+    const tenant = await db.tenant.findUnique({
       where: { id: tenantId },
       select: { name: true, customLogoUrl: true },
     });
@@ -42,7 +43,8 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'URL do logo muito longa.' }, { status: 400 });
     }
 
-    const tenant = await prisma.tenant.update({
+    const db = getTenantDb(tenantId);
+    const tenant = await db.tenant.update({
       where: { id: tenantId },
       data: { customLogoUrl: customLogoUrl || null },
       select: { name: true, customLogoUrl: true },

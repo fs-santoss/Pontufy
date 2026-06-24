@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     const db = getTenantDb(tenantId);
 
     if (rewardId) {
-      const reward = await db.reward.findUnique({ where: { id: rewardId } });
+      const reward = await db.reward.findFirst({ where: { id: rewardId } });
 
       if (!reward || !reward.isActive) {
         return NextResponse.json({ error: 'Recompensa indisponível ou inativa.' }, { status: 404 });

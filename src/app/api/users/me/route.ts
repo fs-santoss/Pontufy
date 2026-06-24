@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getSessionContext } from '@/backend/session';
-import { prisma } from '@/backend/db';
+import { getTenantDb } from '@/backend/db';
 
 export async function GET() {
   try {
-    const { userId } = await getSessionContext();
+    const { userId, tenantId } = await getSessionContext();
+    const db = getTenantDb(tenantId);
 
-    const user = await prisma.user.findUnique({
+    const user = await db.user.findUnique({
       where: { id: userId },
       select: { pointsBalance: true, name: true, role: true },
     });
