@@ -8,6 +8,7 @@ export interface CachedCourse {
   status: string;
   createdAt: string;
   cachedAt: number;
+  quizJson?: string | null;
   lessons: Array<{
     id: string;
     title: string;

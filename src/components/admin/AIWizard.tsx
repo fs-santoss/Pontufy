@@ -40,6 +40,7 @@ export default function AIWizard() {
   const [providerStatus, setProviderStatus] = useState<{
     available: string[];
     configured: boolean;
+    diagnostics?: Record<string, string>;
   } | null>(null);
 
   useEffect(() => {
@@ -148,6 +149,7 @@ export default function AIWizard() {
         status: res.course.status,
         createdAt: res.course.createdAt,
         cachedAt: Date.now(),
+        quizJson: res.course.quizJson,
         lessons: res.course.lessons,
       });
 
@@ -196,18 +198,31 @@ export default function AIWizard() {
             <div className="flex items-start gap-3 text-amber-800">
               <AlertTriangle size={20} className="flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-bold">Motor de IA n&atilde;o configurado</p>
+                <p className="text-sm font-bold">Motor de IA nao configurado</p>
                 <p className="text-sm mt-1">
-                  Nenhuma chave de API de IA est&aacute; configurada. Os cursos ser&atilde;o gerados com um <strong>template b&aacute;sico</strong> (conte&uacute;do gen&eacute;rico).
+                  Nenhuma chave de API de IA esta configurada. Os cursos serao gerados com um <strong>template basico</strong>.
                 </p>
                 <p className="text-sm mt-2 font-medium">
-                  Para gera&ccedil;&atilde;o inteligente, configure no Vercel (Settings &rarr; Environment Variables):
+                  Para geracao inteligente, configure no Vercel (Settings → Environment Variables):
                 </p>
                 <ul className="text-sm mt-1 space-y-1 ml-4 list-disc">
-                  <li><code className="bg-amber-100 px-1 rounded text-xs">GEMINI_API_KEY</code> — Gratuito em <span className="underline">aistudio.google.com</span></li>
+                  <li><code className="bg-amber-100 px-1 rounded text-xs">GEMINI_API_KEY</code> — Gratuito em aistudio.google.com</li>
                   <li><code className="bg-amber-100 px-1 rounded text-xs">OPENAI_API_KEY</code> — platform.openai.com</li>
                   <li><code className="bg-amber-100 px-1 rounded text-xs">ANTHROPIC_API_KEY</code> — console.anthropic.com</li>
                 </ul>
+                <p className="text-xs mt-3 text-amber-600 font-medium">
+                  Importante: Configure a variavel para TODOS os ambientes (Production, Preview e Development) no Vercel.
+                </p>
+                {providerStatus.diagnostics && (
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-xs font-medium text-amber-700">Diagnostico do servidor</summary>
+                    <ul className="mt-1 space-y-0.5 text-xs text-amber-600">
+                      {Object.entries(providerStatus.diagnostics).map(([k, v]) => (
+                        <li key={k}><strong>{k}:</strong> {v}</li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
               </div>
             </div>
           </div>
@@ -415,11 +430,19 @@ export default function AIWizard() {
           <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3 text-amber-800">
             <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
             <div className="text-sm">
-              <p className="font-bold">Conte&uacute;do gerado por template</p>
+              <p className="font-bold">Conteudo gerado por template</p>
               <p className="mt-1">
-                Este curso foi criado com um modelo b&aacute;sico porque nenhuma IA est&aacute; configurada.
+                Este curso foi criado com um modelo basico porque nenhuma IA esta configurada ou todos os provedores falharam.
                 Para cursos personalizados e inteligentes, configure uma <code className="bg-amber-100 px-1 rounded text-xs">GEMINI_API_KEY</code> no Vercel.
               </p>
+              {result.aiErrors && result.aiErrors.length > 0 && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer font-medium text-amber-700">Ver erros dos provedores</summary>
+                  <ul className="mt-1 space-y-1 ml-4 list-disc text-xs text-amber-700">
+                    {result.aiErrors.map((e, i) => <li key={i}>{e}</li>)}
+                  </ul>
+                </details>
+              )}
             </div>
           </div>
         )}

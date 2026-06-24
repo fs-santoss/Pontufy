@@ -3,12 +3,13 @@ import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 
 import VideoPlayer from '@/components/player/VideoPlayer';
+import LessonContent from '@/components/player/LessonContent';
 import SidebarModules from '@/components/player/SidebarModules';
 import QuizModule from '@/components/player/QuizModule';
 import PointsCelebration from '@/components/gamification/PointsCelebration';
 import { useCourse, triggerLessonCompletion } from '@/hooks/useApi';
 import { getCachedCourses } from '@/lib/local-courses';
-import { Loader2, Download } from 'lucide-react';
+import { Loader2, Download, BookOpen, Play } from 'lucide-react';
 
 interface Lesson {
   id: string;
@@ -28,12 +29,15 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
   const [showCelebration, setShowCelebration] = useState(false);
   const [earnedPoints, setEarnedPoints] = useState(0);
   const [isCompleting, setIsCompleting] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'notes' | 'materials'>('overview');
   const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
     const cached = getCachedCourses().find((c) => c.id === id);
     if (cached) {
+      let quiz = null;
+      if (cached.quizJson) {
+        try { quiz = JSON.parse(cached.quizJson); } catch {}
+      }
       setLocalCourse({
         id: cached.id,
         title: cached.title,
@@ -46,7 +50,7 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
           points: l.pointsAssigned,
           completed: false,
         })),
-        quiz: null,
+        quiz,
       });
     }
     setLocalChecked(true);
@@ -65,7 +69,7 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
   if (!course) {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-72px)] gap-4">
-        <p className="text-brand-slate text-lg font-semibold">Curso não encontrado.</p>
+        <p className="text-brand-slate text-lg font-semibold">Curso nao encontrado.</p>
         <Link href="/dashboard" className="text-emerald-600 font-bold hover:underline">
           Voltar ao Dashboard
         </Link>
@@ -79,7 +83,7 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
   if (!activeLesson) {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-72px)] gap-4">
-        <p className="text-brand-slate text-lg font-semibold">Este curso não possui aulas.</p>
+        <p className="text-brand-slate text-lg font-semibold">Este curso nao possui aulas.</p>
         <Link href="/dashboard" className="text-emerald-600 font-bold hover:underline">
           Voltar ao Dashboard
         </Link>
@@ -90,6 +94,8 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
   const completedCount = lessons.filter((l) => l.completed).length;
   const allCompleted = completedCount === lessons.length && lessons.length > 0;
   const quizzes: { module: string; questions: any[] }[] = course.quiz || [];
+  const isTextLesson = activeLesson.type === 'text';
+  const lessonContent = activeLesson.contentUrl || '';
 
   const handleDownloadCertificate = async () => {
     setIsDownloading(true);
@@ -151,6 +157,9 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
     }
   };
 
+  const currentIndex = lessons.findIndex((l) => l.id === activeLesson.id);
+  const nextLesson = currentIndex < lessons.length - 1 ? lessons[currentIndex + 1] : null;
+
   return (
     <div className="flex flex-col lg:overflow-hidden lg:h-full">
       <PointsCelebration
@@ -163,58 +172,68 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
         <div className="flex-1 flex flex-col bg-white relative min-w-0">
           <div className="absolute top-4 left-4 z-50">
             <Link href="/dashboard" className="flex items-center gap-2 bg-black/60 hover:bg-black/80 text-white px-3 py-2 sm:px-4 rounded-full backdrop-blur-md text-xs sm:text-sm font-bold transition-all shadow-lg">
-              ← Voltar para Início
+              ← Voltar para Inicio
             </Link>
           </div>
-          <div className="aspect-video lg:aspect-auto lg:h-[70%]">
-            <VideoPlayer lesson={activeLesson} onComplete={handleLessonComplete} />
-          </div>
 
-          <div className="flex-1 p-5 sm:p-8 lg:overflow-y-auto">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-brand-slate mb-4">{activeLesson.title}</h1>
-            <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
-              {(['overview', 'notes', 'materials'] as const).map((tab) => {
-                const labels = { overview: 'Visão Geral', notes: 'Anotações', materials: 'Materiais' };
-                return (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`font-semibold pb-1 transition-colors ${
-                      activeTab === tab
-                        ? 'text-emerald-600 font-bold border-b-2 border-emerald-600'
-                        : 'text-brand-text hover:text-brand-slate'
-                    }`}
-                  >
-                    {labels[tab]}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="mt-6 text-brand-slate/80 leading-relaxed max-w-3xl">
-              {activeTab === 'overview' && <p>{course.description}</p>}
-              {activeTab === 'notes' && (
-                <p className="text-brand-text">Suas anotações aparecerão aqui. Recurso em breve.</p>
-              )}
-              {activeTab === 'materials' && (
-                <p className="text-brand-text">Materiais complementares aparecerão aqui. Recurso em breve.</p>
-              )}
+          {isTextLesson ? (
+            <div className="flex-1 overflow-y-auto">
+              <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 px-6 sm:px-10 pt-16 pb-8">
+                <div className="flex items-center gap-2 text-emerald-200 text-sm mb-2">
+                  <BookOpen size={16} />
+                  <span>Aula {currentIndex + 1} de {lessons.length}</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-white">{activeLesson.title}</h1>
+                <p className="text-emerald-100 mt-2 text-sm">{course.title}</p>
+              </div>
 
-              <div className="mt-8 space-y-4">
-                <button
-                  onClick={handleLessonComplete}
-                  disabled={activeLesson.completed || isCompleting}
-                  className={`px-6 py-3 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 ${
-                    activeLesson.completed
-                      ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                      : 'bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-md'
-                  }`}
-                >
-                  {activeLesson.completed ? 'Aula Concluída' : `Concluir Aula e Ganhar ${activeLesson.points} Pontos`}
-                </button>
+              <div className="px-6 sm:px-10 py-8 max-w-4xl">
+                {lessonContent ? (
+                  <LessonContent content={lessonContent} />
+                ) : (
+                  <div className="text-center py-12">
+                    <BookOpen size={48} className="mx-auto text-gray-300 mb-4" />
+                    <p className="text-brand-text text-lg">Conteudo desta aula em breve.</p>
+                    <p className="text-gray-400 text-sm mt-1">O conteudo educacional sera exibido aqui.</p>
+                  </div>
+                )}
+
+                <div className="mt-10 pt-6 border-t border-gray-100 space-y-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      onClick={handleLessonComplete}
+                      disabled={activeLesson.completed || isCompleting}
+                      className={`px-6 py-3 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 ${
+                        activeLesson.completed
+                          ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                          : 'bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-md'
+                      }`}
+                    >
+                      {activeLesson.completed
+                        ? 'Aula Concluida'
+                        : isCompleting
+                          ? 'Concluindo...'
+                          : `Concluir Aula e Ganhar ${activeLesson.points} Pontos`}
+                    </button>
+
+                    {activeLesson.completed && nextLesson && (
+                      <button
+                        onClick={() => setActiveLessonId(nextLesson.id)}
+                        className="px-6 py-3 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                      >
+                        Proxima Aula →
+                      </button>
+                    )}
+                  </div>
+                </div>
 
                 {allCompleted && quizzes.length > 0 && (
-                  <div className="space-y-4 pt-4 border-t border-gray-100">
-                    <h2 className="text-xl font-bold text-brand-slate">Quizzes do Curso</h2>
+                  <div className="mt-10 space-y-4 pt-6 border-t border-gray-100">
+                    <h2 className="text-xl font-bold text-brand-slate flex items-center gap-2">
+                      <span className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 text-sm font-bold">?</span>
+                      Quiz de Avaliacao
+                    </h2>
+                    <p className="text-brand-text text-sm mb-4">Teste seus conhecimentos sobre o conteudo do curso.</p>
                     {quizzes.map((q, i) => (
                       <QuizModule
                         key={i}
@@ -229,18 +248,96 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
                 )}
 
                 {allCompleted && (
-                  <button
-                    onClick={handleDownloadCertificate}
-                    disabled={isDownloading}
-                    className="px-6 py-3 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 bg-brand-slate text-white hover:bg-brand-slate/90 hover:shadow-md disabled:opacity-50"
-                  >
-                    <Download size={18} />
-                    {isDownloading ? 'Gerando...' : 'Baixar Certificado'}
-                  </button>
+                  <div className="mt-6">
+                    <button
+                      onClick={handleDownloadCertificate}
+                      disabled={isDownloading}
+                      className="px-6 py-3 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 bg-brand-slate text-white hover:bg-brand-slate/90 hover:shadow-md disabled:opacity-50"
+                    >
+                      <Download size={18} />
+                      {isDownloading ? 'Gerando...' : 'Baixar Certificado'}
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="aspect-video lg:aspect-auto lg:h-[55%]">
+                <VideoPlayer lesson={activeLesson} onComplete={handleLessonComplete} />
+              </div>
+
+              <div className="flex-1 p-5 sm:p-8 lg:overflow-y-auto">
+                <div className="flex items-center gap-2 text-brand-text text-sm mb-2">
+                  <Play size={16} />
+                  <span>Aula {currentIndex + 1} de {lessons.length}</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-brand-slate mb-4">{activeLesson.title}</h1>
+
+                {lessonContent && (
+                  <div className="mt-4 max-w-3xl">
+                    <LessonContent content={lessonContent} />
+                  </div>
+                )}
+
+                <div className="mt-8 space-y-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      onClick={handleLessonComplete}
+                      disabled={activeLesson.completed || isCompleting}
+                      className={`px-6 py-3 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 ${
+                        activeLesson.completed
+                          ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                          : 'bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-md'
+                      }`}
+                    >
+                      {activeLesson.completed
+                        ? 'Aula Concluida'
+                        : isCompleting
+                          ? 'Concluindo...'
+                          : `Concluir Aula e Ganhar ${activeLesson.points} Pontos`}
+                    </button>
+
+                    {activeLesson.completed && nextLesson && (
+                      <button
+                        onClick={() => setActiveLessonId(nextLesson.id)}
+                        className="px-6 py-3 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                      >
+                        Proxima Aula →
+                      </button>
+                    )}
+                  </div>
+
+                  {allCompleted && quizzes.length > 0 && (
+                    <div className="space-y-4 pt-4 border-t border-gray-100">
+                      <h2 className="text-xl font-bold text-brand-slate">Quiz de Avaliacao</h2>
+                      {quizzes.map((q, i) => (
+                        <QuizModule
+                          key={i}
+                          module={q.module}
+                          questions={q.questions}
+                          onComplete={(score, total) => {
+                            console.log(`Quiz "${q.module}": ${score}/${total}`);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {allCompleted && (
+                    <button
+                      onClick={handleDownloadCertificate}
+                      disabled={isDownloading}
+                      className="px-6 py-3 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 bg-brand-slate text-white hover:bg-brand-slate/90 hover:shadow-md disabled:opacity-50"
+                    >
+                      <Download size={18} />
+                      {isDownloading ? 'Gerando...' : 'Baixar Certificado'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="w-full lg:w-[360px] xl:w-[400px] lg:h-full shrink-0 border-t lg:border-t-0 border-gray-100">
