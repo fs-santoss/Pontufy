@@ -188,6 +188,25 @@ Objetivo do treinamento solicitado pelo RH: ${prompt}`;
   return { data: generateLocalFallback(prompt, sector, referenceContent), provider: 'local:fallback' };
 }
 
+export async function checkAIProviders(): Promise<{
+  available: string[];
+  configured: boolean;
+}> {
+  const available: string[] = [];
+
+  if (process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    available.push('Google Gemini');
+  }
+  if (process.env.OPENAI_API_KEY) {
+    available.push('OpenAI');
+  }
+  if (process.env.ANTHROPIC_API_KEY) {
+    available.push('Anthropic Claude');
+  }
+
+  return { available, configured: available.length > 0 };
+}
+
 const inputSchema = z.object({
   prompt: z
     .string()

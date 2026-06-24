@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sparkles, CheckCircle, ChevronRight, ArrowLeft, AlertCircle, Upload, X, FileText } from 'lucide-react';
-import { generateTrainingCourse } from '@/actions/course-generator';
+import { Sparkles, CheckCircle, ChevronRight, ArrowLeft, AlertCircle, Upload, X, FileText, AlertTriangle, Zap } from 'lucide-react';
+import { generateTrainingCourse, checkAIProviders } from '@/actions/course-generator';
 import type { GenerateTrainingResult } from '@/actions/course-generator';
 import { saveCourse } from '@/lib/local-courses';
 import { mutate } from 'swr';
@@ -37,6 +37,15 @@ export default function AIWizard() {
   const [activeChecklist, setActiveChecklist] = useState(0);
   const [result, setResult] = useState<SuccessResult | null>(null);
 
+  const [providerStatus, setProviderStatus] = useState<{
+    available: string[];
+    configured: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    checkAIProviders().then(setProviderStatus).catch(() => {});
+  }, []);
+
   const sectorLabels: Record<string, string> = {
     tech: 'Tecnologia e Inovação',
     health: 'Saúde e Bem-Estar',
@@ -44,13 +53,20 @@ export default function AIWizard() {
     industry: 'Indústria e Manufatura',
   };
 
-  const checklistItems = [
-    'Processando materiais de referência...',
-    'Enviando prompt para a IA...',
-    'Estruturando módulos de ensino...',
-    'Calibrando distribuição de recompensas (pts)...',
-    'Finalizando formatação...',
-  ];
+  const checklistItems = files.length > 0
+    ? [
+        'Processando materiais de referência...',
+        'Enviando prompt para a IA...',
+        'Estruturando módulos de ensino...',
+        'Calibrando distribuição de recompensas (pts)...',
+        'Finalizando formatação...',
+      ]
+    : [
+        'Enviando prompt para a IA...',
+        'Estruturando módulos de ensino...',
+        'Calibrando distribuição de recompensas (pts)...',
+        'Finalizando formatação...',
+      ];
 
   const addFiles = (newFiles: FileList | File[]) => {
     const valid: File[] = [];
@@ -150,20 +166,20 @@ export default function AIWizard() {
 
   useEffect(() => {
     if (step === 2) {
+      const total = checklistItems.length;
       const interval = setInterval(() => {
         setLoadingProgress((prev) => {
           if (prev >= 95) return 95;
           const next = prev + 1;
-          if (next > 15 && next <= 35) setActiveChecklist(1);
-          if (next > 35 && next <= 60) setActiveChecklist(2);
-          if (next > 60 && next <= 80) setActiveChecklist(3);
-          if (next > 80) setActiveChecklist(4);
+          const stepSize = Math.floor(90 / total);
+          const newChecklist = Math.min(total - 1, Math.floor(next / stepSize));
+          setActiveChecklist(newChecklist);
           return next;
         });
       }, 200);
       return () => clearInterval(interval);
     }
-  }, [step]);
+  }, [step, checklistItems.length]);
 
   if (step === 1) {
     return (
@@ -175,6 +191,37 @@ export default function AIWizard() {
           <p className="text-brand-text mt-1">Crie treinamentos corporativos engajadores em segundos.</p>
         </div>
 
+        {providerStatus && !providerStatus.configured && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="flex items-start gap-3 text-amber-800">
+              <AlertTriangle size={20} className="flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-bold">Motor de IA n&atilde;o configurado</p>
+                <p className="text-sm mt-1">
+                  Nenhuma chave de API de IA est&aacute; configurada. Os cursos ser&atilde;o gerados com um <strong>template b&aacute;sico</strong> (conte&uacute;do gen&eacute;rico).
+                </p>
+                <p className="text-sm mt-2 font-medium">
+                  Para gera&ccedil;&atilde;o inteligente, configure no Vercel (Settings &rarr; Environment Variables):
+                </p>
+                <ul className="text-sm mt-1 space-y-1 ml-4 list-disc">
+                  <li><code className="bg-amber-100 px-1 rounded text-xs">GEMINI_API_KEY</code> — Gratuito em <span className="underline">aistudio.google.com</span></li>
+                  <li><code className="bg-amber-100 px-1 rounded text-xs">OPENAI_API_KEY</code> — platform.openai.com</li>
+                  <li><code className="bg-amber-100 px-1 rounded text-xs">ANTHROPIC_API_KEY</code> — console.anthropic.com</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {providerStatus && providerStatus.configured && (
+          <div className="mb-6 p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-3 text-emerald-700">
+            <Zap size={18} />
+            <span className="text-sm font-medium">
+              IA ativa: {providerStatus.available.join(', ')}
+            </span>
+          </div>
+        )}
+
         {error && (
           <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-lg flex items-center gap-3 text-rose-700">
             <AlertCircle size={20} />
@@ -185,23 +232,23 @@ export default function AIWizard() {
         <div className="space-y-6">
           <div>
             <label className="block text-sm font-bold text-brand-slate mb-2">
-              Setor/Vertical de Atuação
+              Setor/Vertical de Atua&ccedil;&atilde;o
             </label>
             <select
               value={sector}
               onChange={(e) => setSector(e.target.value)}
               className="w-full bg-gray-50 border border-gray-200 text-brand-slate rounded-lg p-3 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition-all"
             >
-              <option value="tech">Tecnologia e Inovação</option>
-              <option value="health">Saúde e Bem-Estar</option>
+              <option value="tech">Tecnologia e Inova&ccedil;&atilde;o</option>
+              <option value="health">Sa&uacute;de e Bem-Estar</option>
               <option value="retail">Varejo e Vendas</option>
-              <option value="industry">Indústria e Manufatura</option>
+              <option value="industry">Ind&uacute;stria e Manufatura</option>
             </select>
           </div>
 
           <div>
             <label className="block text-sm font-bold text-brand-slate mb-2">
-              O que você deseja ensinar?
+              O que voc&ecirc; deseja ensinar?
             </label>
             <textarea
               value={prompt}
@@ -213,7 +260,7 @@ export default function AIWizard() {
 
           <div>
             <label className="block text-sm font-bold text-brand-slate mb-2">
-              Material de Referência <span className="text-brand-text font-normal">(opcional)</span>
+              Material de Refer&ecirc;ncia <span className="text-brand-text font-normal">(opcional)</span>
             </label>
             <div
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -243,7 +290,7 @@ export default function AIWizard() {
                 Arraste arquivos aqui ou <span className="text-emerald-600 font-semibold">clique para selecionar</span>
               </p>
               <p className="text-xs text-gray-400 mt-1">
-                PDF, Word, TXT, PowerPoint, Excel, MD, MP4, MP3 — até {MAX_FILES} arquivos, 10MB cada
+                PDF, Word, TXT, PowerPoint, Excel, MD, MP4, MP3 — at&eacute; {MAX_FILES} arquivos, 10MB cada
               </p>
             </div>
 
@@ -269,9 +316,9 @@ export default function AIWizard() {
 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4 border-t border-gray-100">
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-brand-text">Custo da operação:</span>
+              <span className="text-brand-text">Custo da opera&ccedil;&atilde;o:</span>
               <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
-                1 Crédito de IA
+                1 Cr&eacute;dito de IA
               </span>
             </div>
 
@@ -297,8 +344,8 @@ export default function AIWizard() {
         <div className="w-16 h-16 bg-gradient-pontufy rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-100 animate-pulse">
           <Sparkles className="text-emerald-900" size={32} />
         </div>
-        <h2 className="text-2xl font-black text-brand-slate mb-2">A IA está trabalhando...</h2>
-        <p className="text-brand-text mb-10">Isso pode levar até 30 segundos.</p>
+        <h2 className="text-2xl font-black text-brand-slate mb-2">A IA est&aacute; trabalhando...</h2>
+        <p className="text-brand-text mb-10">Isso pode levar at&eacute; 30 segundos.</p>
 
         <div className="w-full max-w-xl mx-auto h-2 bg-gray-100 rounded-full overflow-hidden mb-8">
           <div
@@ -338,6 +385,7 @@ export default function AIWizard() {
 
   if (step === 3 && result) {
     const lessons = result.course.lessons;
+    const isTemplate = result.provider.startsWith('local:');
 
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 animate-[fadeIn_0.3s_ease-out]">
@@ -363,15 +411,30 @@ export default function AIWizard() {
           </button>
         </div>
 
+        {isTemplate && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3 text-amber-800">
+            <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-bold">Conte&uacute;do gerado por template</p>
+              <p className="mt-1">
+                Este curso foi criado com um modelo b&aacute;sico porque nenhuma IA est&aacute; configurada.
+                Para cursos personalizados e inteligentes, configure uma <code className="bg-amber-100 px-1 rounded text-xs">GEMINI_API_KEY</code> no Vercel.
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center gap-3 mb-6 text-sm">
           <span className="bg-emerald-50 text-emerald-700 font-bold px-3 py-1 rounded-full">
             {result.lessonsCount} aulas
           </span>
-          <span className="bg-gray-100 text-brand-text font-medium px-3 py-1 rounded-full">
-            Provedor: {result.provider}
+          <span className={`font-medium px-3 py-1 rounded-full ${
+            isTemplate ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
+          }`}>
+            {isTemplate ? 'Template local' : `IA: ${result.provider}`}
           </span>
           <span className="bg-gray-100 text-brand-text font-medium px-3 py-1 rounded-full">
-            Créditos restantes: {result.creditsRemaining}
+            Cr&eacute;ditos restantes: {result.creditsRemaining}
           </span>
           {!result.persisted && (
             <span className="bg-amber-50 text-amber-700 font-medium px-3 py-1 rounded-full">
