@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { generateTrainingCourse } from '@/actions/course-generator';
+import { saveCourse } from '@/lib/local-courses';
 
 export default function AIAssistantForm() {
   const [prompt, setPrompt] = useState('');
@@ -16,6 +17,15 @@ export default function AIAssistantForm() {
       const result = await generateTrainingCourse({ prompt });
 
       if (result.success) {
+        saveCourse({
+          id: result.course.id,
+          title: result.course.title,
+          description: result.course.description,
+          status: result.course.status,
+          createdAt: result.course.createdAt,
+          cachedAt: Date.now(),
+          lessons: result.course.lessons,
+        });
         setFeedback({
           type: 'success',
           text: `Curso "${result.course.title}" criado com ${result.lessonsCount} aulas. Créditos restantes: ${result.creditsRemaining}.`,

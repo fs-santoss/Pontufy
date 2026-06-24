@@ -20,7 +20,9 @@ export function useCourses(page = 1, limit = 12) {
 }
 
 export function useCourse(id: string) {
-  return useSWR(id ? `/api/courses/${id}` : null, fetcher);
+  return useSWR(id ? `/api/courses/${id}` : null, fetcher, {
+    shouldRetryOnError: false,
+  });
 }
 
 export function useEnrolledCourses() {
