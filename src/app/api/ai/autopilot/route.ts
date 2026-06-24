@@ -22,7 +22,7 @@ export async function POST(req: Request) {
       model: google('gemini-2.5-flash'),
       system: 'Você é um assistente especialista em RH e gamificação corporativa. Crie textos engajadores e diretos.',
       prompt: prompt,
-      maxTokens: 500,
+      maxOutputTokens: 500,
     });
 
     return result.toDataStreamResponse();
