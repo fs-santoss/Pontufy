@@ -1,4 +1,4 @@
-import { CheckCircle, PlayCircle, Coins } from 'lucide-react';
+import { CheckCircle2, PlayCircle, Circle, Coins } from 'lucide-react';
 
 interface Lesson {
   id: string;
@@ -14,44 +14,74 @@ interface SidebarModulesProps {
   onLessonClick: (lesson: Lesson) => void;
 }
 
-export default function SidebarModules({ lessons, activeLesson, completedCount, onLessonClick }: SidebarModulesProps) {
+export default function SidebarModules({
+  lessons,
+  activeLesson,
+  completedCount,
+  onLessonClick,
+}: SidebarModulesProps) {
+  const progress = lessons.length > 0 ? Math.round((completedCount / lessons.length) * 100) : 0;
+
   return (
-    <div className="w-full h-full bg-white border-l border-gray-100 flex flex-col overflow-y-auto">
-      <div className="p-4 border-b border-gray-100 bg-gray-50/50">
-        <h2 className="font-bold text-brand-slate text-lg">Conteúdo do Curso</h2>
-        <div className="text-sm text-brand-text mt-1">{completedCount} / {lessons.length} Aulas concluídas</div>
+    <div className="w-full h-full bg-[#141414] border-l border-[#2a2a2a] flex flex-col overflow-hidden">
+      {/* Header */}
+      <div className="p-4 border-b border-[#2a2a2a] flex-shrink-0">
+        <h2 className="font-bold text-white text-sm mb-2">Conteúdo do Curso</h2>
+        <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+          <span>{completedCount}/{lessons.length} aulas</span>
+          <span className="text-emerald-400 font-bold">{progress}%</span>
+        </div>
+        <div className="h-1 bg-[#2a2a2a] rounded-full overflow-hidden">
+          <div
+            className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
       </div>
 
-      <div className="flex-1">
-        {lessons.map((lesson) => (
-          <div
-            key={lesson.id}
-            onClick={() => onLessonClick(lesson)}
-            className={`p-4 flex gap-3 cursor-pointer transition-colors border-b border-gray-50 ${
-              activeLesson?.id === lesson.id ? 'bg-emerald-50/50' : 'hover:bg-gray-50'
-            }`}
-          >
-            <div className="mt-0.5">
-              {lesson.completed ? (
-                <CheckCircle size={18} className="text-emerald-500" />
-              ) : (
-                <PlayCircle size={18} className={activeLesson?.id === lesson.id ? 'text-emerald-600' : 'text-gray-400'} />
-              )}
-            </div>
-            <div className="flex-1">
-              <h4 className={`text-sm ${activeLesson?.id === lesson.id ? 'font-bold text-emerald-900' : 'text-brand-slate'}`}>
-                {lesson.title}
-              </h4>
-              <div className="flex items-center gap-3 mt-1 text-xs">
-                {!lesson.completed && (
-                  <span className="flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
-                    <Coins size={12} /> +{lesson.points} pts
-                  </span>
+      {/* Lessons */}
+      <div className="flex-1 overflow-y-auto">
+        {lessons.map((lesson, index) => {
+          const isActive = activeLesson?.id === lesson.id;
+          return (
+            <button
+              key={lesson.id}
+              onClick={() => onLessonClick(lesson)}
+              className={`w-full text-left p-4 flex gap-3 transition-colors border-b border-[#1f1f1f] ${
+                isActive
+                  ? 'bg-emerald-500/10 border-l-2 border-l-emerald-500'
+                  : 'hover:bg-[#1f1f1f] border-l-2 border-l-transparent'
+              }`}
+            >
+              <div className="mt-0.5 flex-shrink-0">
+                {lesson.completed ? (
+                  <CheckCircle2 size={17} className="text-emerald-500" />
+                ) : isActive ? (
+                  <PlayCircle size={17} className="text-emerald-400" />
+                ) : (
+                  <Circle size={17} className="text-gray-600" />
                 )}
               </div>
-            </div>
-          </div>
-        ))}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2">
+                  <p
+                    className={`text-xs leading-snug ${
+                      isActive ? 'text-white font-bold' : 'text-gray-400 font-medium'
+                    } ${lesson.completed ? 'line-through opacity-50' : ''}`}
+                  >
+                    <span className="text-gray-600 mr-1">{index + 1}.</span>
+                    {lesson.title}
+                  </p>
+                </div>
+                {!lesson.completed && (
+                  <div className="flex items-center gap-1 mt-1 text-[10px] text-amber-400 font-bold">
+                    <Coins size={10} /> +{lesson.points} pts
+                  </div>
+                )}
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

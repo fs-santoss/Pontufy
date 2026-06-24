@@ -9,7 +9,7 @@ import QuizModule from '@/components/player/QuizModule';
 import PointsCelebration from '@/components/gamification/PointsCelebration';
 import { useCourse, triggerLessonCompletion } from '@/hooks/useApi';
 import { getCachedCourses } from '@/lib/local-courses';
-import { Loader2, Download, BookOpen, Play } from 'lucide-react';
+import { Loader2, Download, BookOpen, Play, ArrowLeft, Trophy, CheckCircle2 } from 'lucide-react';
 
 interface Lesson {
   id: string;
@@ -60,18 +60,19 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
 
   if ((isLoading && !localChecked) || (!course && !apiError && !localChecked)) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-72px)]">
-        <Loader2 className="animate-spin text-emerald-500" size={48} />
+      <div className="flex items-center justify-center h-screen bg-[#0a0a0a]">
+        <Loader2 className="animate-spin text-emerald-500" size={36} />
       </div>
     );
   }
 
   if (!course) {
     return (
-      <div className="flex flex-col items-center justify-center h-[calc(100vh-72px)] gap-4">
-        <p className="text-brand-slate text-lg font-semibold">Curso nao encontrado.</p>
-        <Link href="/dashboard" className="text-emerald-600 font-bold hover:underline">
-          Voltar ao Dashboard
+      <div className="flex flex-col items-center justify-center h-screen bg-[#0a0a0a] gap-4">
+        <BookOpen size={48} className="text-gray-700" />
+        <p className="text-white text-lg font-bold">Curso não encontrado.</p>
+        <Link href="/dashboard" className="text-emerald-400 font-bold hover:text-emerald-300 transition-colors">
+          ← Voltar ao Início
         </Link>
       </div>
     );
@@ -82,10 +83,10 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
 
   if (!activeLesson) {
     return (
-      <div className="flex flex-col items-center justify-center h-[calc(100vh-72px)] gap-4">
-        <p className="text-brand-slate text-lg font-semibold">Este curso nao possui aulas.</p>
-        <Link href="/dashboard" className="text-emerald-600 font-bold hover:underline">
-          Voltar ao Dashboard
+      <div className="flex flex-col items-center justify-center h-screen bg-[#0a0a0a] gap-4">
+        <p className="text-white text-lg font-bold">Este curso não possui aulas.</p>
+        <Link href="/dashboard" className="text-emerald-400 font-bold hover:text-emerald-300 transition-colors">
+          ← Voltar ao Início
         </Link>
       </div>
     );
@@ -161,79 +162,194 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
   const nextLesson = currentIndex < lessons.length - 1 ? lessons[currentIndex + 1] : null;
 
   return (
-    <div className="flex flex-col lg:overflow-hidden lg:h-full">
+    <div className="flex flex-col h-screen bg-[#0a0a0a] overflow-hidden">
       <PointsCelebration
         points={earnedPoints}
         isVisible={showCelebration}
         onComplete={() => setShowCelebration(false)}
       />
 
-      <div className="flex-1 flex flex-col lg:flex-row lg:h-[calc(100vh-72px)]">
-        <div className="flex-1 flex flex-col bg-white relative min-w-0">
-          <div className="absolute top-4 left-4 z-50">
-            <Link href="/dashboard" className="flex items-center gap-2 bg-black/60 hover:bg-black/80 text-white px-3 py-2 sm:px-4 rounded-full backdrop-blur-md text-xs sm:text-sm font-bold transition-all shadow-lg">
-              ← Voltar para Inicio
-            </Link>
-          </div>
+      {/* Top bar (Udemy-style) */}
+      <div className="h-14 flex-shrink-0 bg-[#141414] border-b border-[#2a2a2a] flex items-center px-4 gap-4 z-40">
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-medium"
+        >
+          <ArrowLeft size={18} />
+          <span className="hidden sm:inline">Voltar</span>
+        </Link>
+        <div className="h-5 w-px bg-[#2a2a2a]" />
+        <h1 className="text-sm font-bold text-white truncate flex-1">{course.title}</h1>
+        <div className="text-xs text-gray-500 hidden sm:block">
+          {completedCount}/{lessons.length} aulas
+        </div>
+      </div>
 
+      {/* Main content */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Content area */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {isTextLesson ? (
             <div className="flex-1 overflow-y-auto">
-              <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 px-6 sm:px-10 pt-16 pb-8">
-                <div className="flex items-center gap-2 text-emerald-200 text-sm mb-2">
-                  <BookOpen size={16} />
+              {/* Lesson header */}
+              <div className="bg-[#141414] border-b border-[#2a2a2a] px-6 sm:px-10 py-6">
+                <div className="flex items-center gap-2 text-gray-600 text-xs mb-2">
+                  <BookOpen size={13} />
                   <span>Aula {currentIndex + 1} de {lessons.length}</span>
                 </div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-white">{activeLesson.title}</h1>
-                <p className="text-emerald-100 mt-2 text-sm">{course.title}</p>
+                <h2 className="text-xl sm:text-2xl font-black text-white">{activeLesson.title}</h2>
+                <p className="text-gray-500 mt-1 text-sm">{course.title}</p>
               </div>
 
+              {/* Content */}
               <div className="px-6 sm:px-10 py-8 max-w-4xl">
                 {lessonContent ? (
                   <LessonContent content={lessonContent} />
                 ) : (
-                  <div className="text-center py-12">
-                    <BookOpen size={48} className="mx-auto text-gray-300 mb-4" />
-                    <p className="text-brand-text text-lg">Conteudo desta aula em breve.</p>
-                    <p className="text-gray-400 text-sm mt-1">O conteudo educacional sera exibido aqui.</p>
+                  <div className="text-center py-16">
+                    <BookOpen size={40} className="mx-auto text-gray-700 mb-4" />
+                    <p className="text-gray-500">Conteúdo desta aula em breve.</p>
                   </div>
                 )}
 
-                <div className="mt-10 pt-6 border-t border-gray-100 space-y-4">
+                {/* Actions */}
+                <div className="mt-10 pt-6 border-t border-[#2a2a2a]">
                   <div className="flex flex-wrap items-center gap-3">
                     <button
                       onClick={handleLessonComplete}
                       disabled={activeLesson.completed || isCompleting}
-                      className={`px-6 py-3 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 ${
+                      className={`px-6 py-3 rounded-lg font-bold transition-all text-sm flex items-center gap-2 ${
                         activeLesson.completed
-                          ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                          : 'bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-md'
+                          ? 'bg-[#1f1f1f] text-gray-600 cursor-not-allowed border border-[#2a2a2a]'
+                          : 'bg-emerald-600 text-white hover:bg-emerald-500'
                       }`}
                     >
-                      {activeLesson.completed
-                        ? 'Aula Concluida'
-                        : isCompleting
-                          ? 'Concluindo...'
-                          : `Concluir Aula e Ganhar ${activeLesson.points} Pontos`}
+                      {activeLesson.completed ? (
+                        <>
+                          <CheckCircle2 size={16} /> Aula Concluída
+                        </>
+                      ) : isCompleting ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" /> Concluindo...
+                        </>
+                      ) : (
+                        `Concluir e Ganhar ${activeLesson.points} Pontos`
+                      )}
                     </button>
 
                     {activeLesson.completed && nextLesson && (
                       <button
                         onClick={() => setActiveLessonId(nextLesson.id)}
-                        className="px-6 py-3 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                        className="px-6 py-3 rounded-lg font-bold transition-all text-sm flex items-center gap-2 bg-white text-black hover:bg-gray-200"
                       >
-                        Proxima Aula →
+                        Próxima Aula →
                       </button>
                     )}
                   </div>
                 </div>
 
+                {/* Quiz section */}
                 {allCompleted && quizzes.length > 0 && (
-                  <div className="mt-10 space-y-4 pt-6 border-t border-gray-100">
-                    <h2 className="text-xl font-bold text-brand-slate flex items-center gap-2">
-                      <span className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 text-sm font-bold">?</span>
-                      Quiz de Avaliacao
+                  <div className="mt-10 space-y-4 pt-8 border-t border-[#2a2a2a]">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-8 h-8 bg-emerald-500/10 rounded-full flex items-center justify-center">
+                        <span className="text-emerald-400 font-black text-sm">?</span>
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-bold text-white">Quiz de Avaliação</h2>
+                        <p className="text-xs text-gray-500">Teste seus conhecimentos sobre o curso.</p>
+                      </div>
+                    </div>
+                    {quizzes.map((q, i) => (
+                      <QuizModule
+                        key={i}
+                        module={q.module}
+                        questions={q.questions}
+                        onComplete={(score, total) => {
+                          console.log(`Quiz "${q.module}": ${score}/${total}`);
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Certificate */}
+                {allCompleted && (
+                  <div className="mt-6">
+                    <button
+                      onClick={handleDownloadCertificate}
+                      disabled={isDownloading}
+                      className="px-6 py-3 rounded-lg font-bold transition-all text-sm flex items-center gap-2 bg-[#1f1f1f] text-white hover:bg-[#2a2a2a] border border-[#2a2a2a] disabled:opacity-50"
+                    >
+                      {isDownloading ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" /> Gerando...
+                        </>
+                      ) : (
+                        <>
+                          <Download size={16} /> Baixar Certificado
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col flex-1 overflow-hidden">
+              {/* Video */}
+              <div className="aspect-video lg:aspect-auto lg:flex-none lg:h-[55%] bg-black">
+                <VideoPlayer lesson={activeLesson} onComplete={handleLessonComplete} />
+              </div>
+
+              {/* Video lesson info */}
+              <div className="flex-1 overflow-y-auto bg-[#0f0f0f] p-5 sm:p-8">
+                <div className="flex items-center gap-2 text-gray-600 text-xs mb-2">
+                  <Play size={13} />
+                  <span>Aula {currentIndex + 1} de {lessons.length}</span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-black text-white mb-4">{activeLesson.title}</h2>
+
+                {lessonContent && (
+                  <div className="mt-4 max-w-3xl">
+                    <LessonContent content={lessonContent} />
+                  </div>
+                )}
+
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={handleLessonComplete}
+                    disabled={activeLesson.completed || isCompleting}
+                    className={`px-6 py-3 rounded-lg font-bold transition-all text-sm flex items-center gap-2 ${
+                      activeLesson.completed
+                        ? 'bg-[#1f1f1f] text-gray-600 cursor-not-allowed border border-[#2a2a2a]'
+                        : 'bg-emerald-600 text-white hover:bg-emerald-500'
+                    }`}
+                  >
+                    {activeLesson.completed ? (
+                      <><CheckCircle2 size={16} /> Aula Concluída</>
+                    ) : isCompleting ? (
+                      <><Loader2 size={16} className="animate-spin" /> Concluindo...</>
+                    ) : (
+                      `Concluir e Ganhar ${activeLesson.points} Pontos`
+                    )}
+                  </button>
+
+                  {activeLesson.completed && nextLesson && (
+                    <button
+                      onClick={() => setActiveLessonId(nextLesson.id)}
+                      className="px-6 py-3 rounded-lg font-bold text-sm flex items-center gap-2 bg-white text-black hover:bg-gray-200 transition-colors"
+                    >
+                      Próxima Aula →
+                    </button>
+                  )}
+                </div>
+
+                {allCompleted && quizzes.length > 0 && (
+                  <div className="mt-8 space-y-4 pt-6 border-t border-[#2a2a2a]">
+                    <h2 className="text-base font-bold text-white flex items-center gap-2">
+                      <Trophy size={18} className="text-amber-400" /> Quiz de Avaliação
                     </h2>
-                    <p className="text-brand-text text-sm mb-4">Teste seus conhecimentos sobre o conteudo do curso.</p>
                     {quizzes.map((q, i) => (
                       <QuizModule
                         key={i}
@@ -248,99 +364,25 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
                 )}
 
                 {allCompleted && (
-                  <div className="mt-6">
-                    <button
-                      onClick={handleDownloadCertificate}
-                      disabled={isDownloading}
-                      className="px-6 py-3 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 bg-brand-slate text-white hover:bg-brand-slate/90 hover:shadow-md disabled:opacity-50"
-                    >
-                      <Download size={18} />
-                      {isDownloading ? 'Gerando...' : 'Baixar Certificado'}
-                    </button>
-                  </div>
+                  <button
+                    onClick={handleDownloadCertificate}
+                    disabled={isDownloading}
+                    className="mt-4 px-6 py-3 rounded-lg font-bold text-sm flex items-center gap-2 bg-[#1f1f1f] text-white hover:bg-[#2a2a2a] border border-[#2a2a2a] disabled:opacity-50 transition-colors"
+                  >
+                    {isDownloading ? (
+                      <><Loader2 size={16} className="animate-spin" /> Gerando...</>
+                    ) : (
+                      <><Download size={16} /> Baixar Certificado</>
+                    )}
+                  </button>
                 )}
               </div>
             </div>
-          ) : (
-            <>
-              <div className="aspect-video lg:aspect-auto lg:h-[55%]">
-                <VideoPlayer lesson={activeLesson} onComplete={handleLessonComplete} />
-              </div>
-
-              <div className="flex-1 p-5 sm:p-8 lg:overflow-y-auto">
-                <div className="flex items-center gap-2 text-brand-text text-sm mb-2">
-                  <Play size={16} />
-                  <span>Aula {currentIndex + 1} de {lessons.length}</span>
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-brand-slate mb-4">{activeLesson.title}</h1>
-
-                {lessonContent && (
-                  <div className="mt-4 max-w-3xl">
-                    <LessonContent content={lessonContent} />
-                  </div>
-                )}
-
-                <div className="mt-8 space-y-4">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <button
-                      onClick={handleLessonComplete}
-                      disabled={activeLesson.completed || isCompleting}
-                      className={`px-6 py-3 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 ${
-                        activeLesson.completed
-                          ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                          : 'bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-md'
-                      }`}
-                    >
-                      {activeLesson.completed
-                        ? 'Aula Concluida'
-                        : isCompleting
-                          ? 'Concluindo...'
-                          : `Concluir Aula e Ganhar ${activeLesson.points} Pontos`}
-                    </button>
-
-                    {activeLesson.completed && nextLesson && (
-                      <button
-                        onClick={() => setActiveLessonId(nextLesson.id)}
-                        className="px-6 py-3 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                      >
-                        Proxima Aula →
-                      </button>
-                    )}
-                  </div>
-
-                  {allCompleted && quizzes.length > 0 && (
-                    <div className="space-y-4 pt-4 border-t border-gray-100">
-                      <h2 className="text-xl font-bold text-brand-slate">Quiz de Avaliacao</h2>
-                      {quizzes.map((q, i) => (
-                        <QuizModule
-                          key={i}
-                          module={q.module}
-                          questions={q.questions}
-                          onComplete={(score, total) => {
-                            console.log(`Quiz "${q.module}": ${score}/${total}`);
-                          }}
-                        />
-                      ))}
-                    </div>
-                  )}
-
-                  {allCompleted && (
-                    <button
-                      onClick={handleDownloadCertificate}
-                      disabled={isDownloading}
-                      className="px-6 py-3 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 bg-brand-slate text-white hover:bg-brand-slate/90 hover:shadow-md disabled:opacity-50"
-                    >
-                      <Download size={18} />
-                      {isDownloading ? 'Gerando...' : 'Baixar Certificado'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </>
           )}
         </div>
 
-        <div className="w-full lg:w-[360px] xl:w-[400px] lg:h-full shrink-0 border-t lg:border-t-0 border-gray-100">
+        {/* Sidebar (Udemy-style) */}
+        <div className="hidden lg:flex w-[340px] xl:w-[380px] flex-shrink-0 border-l border-[#2a2a2a] flex-col">
           <SidebarModules
             lessons={lessons}
             activeLesson={activeLesson}
@@ -348,6 +390,16 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ id: str
             onLessonClick={(lesson) => setActiveLessonId(lesson.id)}
           />
         </div>
+      </div>
+
+      {/* Mobile sidebar (bottom sheet trigger) */}
+      <div className="lg:hidden border-t border-[#2a2a2a] bg-[#141414] max-h-[40vh] overflow-hidden">
+        <SidebarModules
+          lessons={lessons}
+          activeLesson={activeLesson}
+          completedCount={completedCount}
+          onLessonClick={(lesson) => setActiveLessonId(lesson.id)}
+        />
       </div>
     </div>
   );

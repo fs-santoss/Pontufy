@@ -45,8 +45,11 @@ export default function Home() {
         title: allCourses[0].title,
         description: allCourses[0].description || '',
         duration: `${allCourses[0].lessons?.length || 0} aulas`,
-        pointsReward: allCourses[0].lessons?.reduce((s: number, l: any) => s + (l.pointsAssigned || 0), 0) || 0,
-        thumbnail: allCourses[0].imageUrl || 'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200',
+        pointsReward:
+          allCourses[0].lessons?.reduce((s: number, l: any) => s + (l.pointsAssigned || 0), 0) || 0,
+        thumbnail:
+          allCourses[0].imageUrl ||
+          'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1400',
         modules: allCourses[0].lessons?.length || 0,
       }
     : null;
@@ -58,14 +61,19 @@ export default function Home() {
       title: c.title,
       progress: c.progress,
       pointsReward: c.totalLessons * 50,
-      thumbnail: c.imageUrl || 'https://images.unsplash.com/photo-1573164713988-8665fc963095?auto=format&fit=crop&q=80&w=600',
+      thumbnail:
+        c.imageUrl ||
+        'https://images.unsplash.com/photo-1573164713988-8665fc963095?auto=format&fit=crop&q=80&w=600',
     }));
 
   const available = allCourses.slice(1).map((c: any) => ({
     id: c.id,
     title: c.title,
-    pointsReward: c.lessons?.reduce((s: number, l: any) => s + (l.pointsAssigned || 0), 0) || 0,
-    thumbnail: c.imageUrl || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&q=80&w=600',
+    pointsReward:
+      c.lessons?.reduce((s: number, l: any) => s + (l.pointsAssigned || 0), 0) || 0,
+    thumbnail:
+      c.imageUrl ||
+      'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&q=80&w=600',
   }));
 
   const filteredInProgress = filterCourses(inProgress);
@@ -74,18 +82,18 @@ export default function Home() {
   const isLoading = loadingCourses || loadingEnrolled;
 
   return (
-    <main className="min-h-screen pb-20 bg-[#F8F9FA] text-slate-800">
+    <main className="min-h-screen pb-20 bg-[#0a0a0a]">
       <SurpriseRewardToast />
 
       {isLoading ? (
-        <div className="flex items-center justify-center h-[50vh]">
-          <Loader2 className="animate-spin text-emerald-500" size={48} />
+        <div className="flex items-center justify-center h-[60vh]">
+          <Loader2 className="animate-spin text-emerald-500" size={40} />
         </div>
       ) : (
         <>
           {heroCourse && <HeroCourse course={heroCourse} />}
 
-          <div className="relative z-20 -mt-10 space-y-12">
+          <div className="relative z-20 -mt-8 space-y-2 pt-4">
             {filteredInProgress.length > 0 && (
               <CourseRow title="Continue de onde parou" courses={filteredInProgress} />
             )}
@@ -95,10 +103,12 @@ export default function Home() {
             )}
 
             {filteredInProgress.length === 0 && filteredAvailable.length === 0 && !heroCourse && (
-              <div className="px-8 md:px-16 py-8 text-center text-gray-500">
-                {searchQuery
-                  ? `Nenhum curso encontrado para "${searchQuery}".`
-                  : 'Nenhum curso disponível ainda. Peça ao seu gestor para criar treinamentos.'}
+              <div className="px-8 md:px-16 py-20 text-center">
+                <p className="text-gray-500 text-base">
+                  {searchQuery
+                    ? `Nenhum curso encontrado para "${searchQuery}".`
+                    : 'Nenhum curso disponível ainda. Peça ao seu gestor para criar treinamentos.'}
+                </p>
               </div>
             )}
           </div>

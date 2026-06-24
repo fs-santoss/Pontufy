@@ -1,12 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["@prisma/client"],
-  outputFileTracingIncludes: {
-    "/api/**": ["./prisma/dev.db"],
-    "/dashboard": ["./prisma/dev.db"],
-    "/admin/**": ["./prisma/dev.db"],
-    "/player/**": ["./prisma/dev.db"],
+  serverExternalPackages: ["@prisma/client", "prisma"],
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "images.unsplash.com" },
+      { protocol: "https", hostname: "*.supabase.co" },
+      { protocol: "https", hostname: "**.amazonaws.com" },
+    ],
   },
 };
 

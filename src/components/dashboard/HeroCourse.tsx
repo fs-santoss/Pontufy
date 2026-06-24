@@ -1,50 +1,57 @@
-import { Play, Info, Coins } from 'lucide-react';
+import { Play, Info, Coins, Star } from 'lucide-react';
 import Link from 'next/link';
 
 export default function HeroCourse({ course }: { course: any }) {
   if (!course) return null;
 
   return (
-    <div className="relative w-full min-h-[68vh] sm:h-[75vh] flex items-center pt-20 pb-10 sm:pb-0">
-      {/* Background Image with Light Overlay */}
+    <div className="relative w-full min-h-[75vh] sm:min-h-[82vh] flex items-end pb-16 sm:pb-24">
+      {/* Background */}
       <div
         className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: `url(${course.thumbnail})` }}
       >
-        <div className="absolute inset-0 bg-gradient-to-r from-white via-white/90 to-white/30 sm:to-transparent"></div>
-        <div className="absolute inset-0 bg-gradient-to-t from-brand-gray via-transparent to-transparent"></div>
+        {/* Netflix-style gradients */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-black/30" />
       </div>
 
       {/* Content */}
-      <div className="relative z-10 px-5 sm:px-8 md:px-16 max-w-3xl">
-        <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-full mb-4 border border-emerald-100">
-          Recomendado pela IA
+      <div className="relative z-10 px-8 md:px-16 max-w-2xl">
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500 text-white text-[11px] font-black rounded-sm mb-5 uppercase tracking-widest">
+          <Star size={10} fill="white" strokeWidth={0} /> Em Destaque
         </div>
 
-        <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold text-brand-slate tracking-tight mb-4 leading-tight">
+        <h1 className="text-3xl sm:text-5xl md:text-6xl font-black text-white tracking-tight mb-4 leading-[1.05]">
           {course.title}
         </h1>
 
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-semibold text-brand-text mb-6">
-          <span>{course.duration}</span>
-          <span className="hidden sm:inline">•</span>
-          <span>{course.modules} Módulos</span>
-          <span className="hidden sm:inline">•</span>
-          <span className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-            <Coins size={14} /> +{course.pointsReward} Pontos
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm font-semibold mb-5">
+          <span className="text-emerald-400 font-bold">{course.duration}</span>
+          <span className="text-gray-600">•</span>
+          <span className="text-gray-300">{course.modules} módulos</span>
+          <span className="text-gray-600">•</span>
+          <span className="flex items-center gap-1 text-amber-400 font-bold">
+            <Coins size={13} fill="currentColor" /> +{course.pointsReward} pontos
           </span>
         </div>
 
-        <p className="text-base sm:text-lg text-brand-slate/80 mb-8 max-w-xl leading-relaxed line-clamp-3 sm:line-clamp-none">
+        <p className="text-sm sm:text-base text-gray-300 mb-8 max-w-lg leading-relaxed line-clamp-2 sm:line-clamp-3">
           {course.description}
         </p>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <Link href={`/player/${course.id}`} className="flex items-center justify-center gap-2 bg-gradient-pontufy text-emerald-900 font-bold px-8 py-3 rounded-lg shadow-lg shadow-emerald-200 hover:shadow-xl hover:scale-105 transition-all">
-            <Play size={20} fill="currentColor" /> Continuar Aprendendo
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/player/${course.id}`}
+            className="flex items-center gap-2.5 bg-white text-black font-black px-6 sm:px-8 py-3 rounded-md hover:bg-gray-200 transition-colors text-sm whitespace-nowrap"
+          >
+            <Play size={18} fill="black" strokeWidth={0} /> Assistir Agora
           </Link>
-          <Link href={`/player/${course.id}`} className="flex items-center justify-center gap-2 bg-white text-brand-slate font-bold px-8 py-3 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
-            <Info size={20} /> Detalhes
+          <Link
+            href={`/player/${course.id}`}
+            className="flex items-center gap-2.5 bg-white/20 text-white font-bold px-5 sm:px-6 py-3 rounded-md hover:bg-white/30 transition-colors text-sm border border-white/20 whitespace-nowrap"
+          >
+            <Info size={17} /> Detalhes
           </Link>
         </div>
       </div>

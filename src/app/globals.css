@@ -1,25 +1,41 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-lavender: #E6E6FA;
-  --color-brand-mint: #A7F3D0;
-  --color-brand-slate: #334155;
-  --color-brand-gray: #F9FAFB;
-  --color-brand-text: #64748B;
+  --color-brand-bg: #0a0a0a;
+  --color-brand-surface: #141414;
+  --color-brand-raised: #1f1f1f;
+  --color-brand-border: #2a2a2a;
+  --color-brand-gray: #0a0a0a;
+  --color-brand-slate: #f1f5f9;
+  --color-brand-text: #737373;
+  --color-brand-muted: #525252;
+  --color-brand-accent: #10b981;
+  --color-brand-lavender: #10b981;
+  --color-brand-mint: #34d399;
 }
 
 @layer base {
+  *, *::before, *::after {
+    border-color: #2a2a2a;
+  }
   body {
-    @apply bg-brand-gray text-brand-slate font-sans antialiased;
+    background-color: #0a0a0a;
+    color: #e5e5e5;
+    @apply font-sans antialiased;
+  }
+  ::selection {
+    background: #10b981;
+    color: #fff;
   }
 }
 
 @layer utilities {
   .bg-gradient-pontufy {
-    @apply bg-gradient-to-r from-brand-lavender to-brand-mint;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   }
   .text-gradient-pontufy {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-brand-lavender to-brand-mint;
+    background-image: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+    @apply bg-clip-text text-transparent;
   }
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
@@ -27,5 +43,14 @@
   .hide-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+  .glass-dark {
+    background: rgba(20, 20, 20, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .card-dark {
+    background: #141414;
+    border: 1px solid #2a2a2a;
   }
 }

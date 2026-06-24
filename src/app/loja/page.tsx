@@ -6,7 +6,7 @@ import ProductGrid from '@/components/marketplace/ProductGrid';
 import CheckoutDrawer from '@/components/marketplace/CheckoutDrawer';
 import { useStore } from '@/store/useStore';
 import { useRewards } from '@/hooks/useApi';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Gift } from 'lucide-react';
 
 const categories = [
   { id: 'all', name: 'Todos' },
@@ -40,11 +40,14 @@ export default function MarketplacePage() {
   };
 
   return (
-    <main className="pb-20 pt-8">
+    <main className="min-h-screen pb-20 pt-24 bg-[#0a0a0a]">
       <div className="max-w-[1600px] mx-auto">
         <div className="px-8 md:px-16 mb-8">
-          <h1 className="text-3xl font-extrabold text-brand-slate">Clube de Benefícios</h1>
-          <p className="text-brand-text mt-2">Troque seu esforço por recompensas reais.</p>
+          <div className="flex items-center gap-3 mb-2">
+            <Gift size={24} className="text-emerald-400" />
+            <h1 className="text-3xl font-black text-white tracking-tight">Clube de Benefícios</h1>
+          </div>
+          <p className="text-gray-500 text-sm">Troque seu esforço por recompensas reais.</p>
         </div>
 
         <CategoryFilter
@@ -54,8 +57,8 @@ export default function MarketplacePage() {
         />
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="animate-spin text-emerald-500" size={40} />
+          <div className="flex items-center justify-center py-24">
+            <Loader2 className="animate-spin text-emerald-500" size={36} />
           </div>
         ) : (
           <ProductGrid
