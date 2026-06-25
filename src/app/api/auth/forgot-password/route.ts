@@ -48,8 +48,8 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Token inválido.' }, { status: 400 });
     }
 
-    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
-      return NextResponse.json({ error: 'A senha deve ter pelo menos 6 caracteres.' }, { status: 400 });
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
+      return NextResponse.json({ error: 'A senha deve ter pelo menos 8 caracteres.' }, { status: 400 });
     }
 
     const reset = await prisma.passwordReset.findUnique({ where: { token } });
