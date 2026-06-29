@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useEnrolledCourses } from '@/hooks/useApi';
 import { useStore } from '@/store/useStore';
 import { getCachedCourses, reconcileWithApi, type CachedCourse } from '@/lib/local-courses';
-import { PlayCircle, CheckCircle2, BookOpen, Loader2, Clock } from 'lucide-react';
+import { PlayCircle, CheckCircle2, BookOpen, Loader2, Clock, Award } from 'lucide-react';
 
 type FilterStatus = 'all' | 'in_progress' | 'completed' | 'available';
 
@@ -26,9 +26,18 @@ export default function CoursesPage() {
   const searchQuery = useStore((s) => s.searchQuery);
   const [filter, setFilter] = useState<FilterStatus>('all');
   const [localCourses, setLocalCourses] = useState<CachedCourse[]>([]);
+  const [certCourseIds, setCertCourseIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setLocalCourses(getCachedCourses());
+    fetch('/api/certificates')
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setCertCourseIds(new Set(data.map((c: any) => c.courseId)));
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const apiCourses = Array.isArray(courses) ? courses : [];
@@ -113,6 +122,7 @@ export default function CoursesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map((course: any) => {
               const cfg = statusConfig[course.status as keyof typeof statusConfig] || statusConfig.available;
+              const hasCert = certCourseIds.has(course.id);
               return (
                 <Link
                   key={course.id}
@@ -146,11 +156,18 @@ export default function CoursesPage() {
                         <Clock size={12} />
                         <span>{course.completedLessons}/{course.totalLessons} aulas</span>
                       </div>
-                      <span
-                        className={`text-xs font-bold px-2.5 py-1 rounded-full border ${cfg.badge}`}
-                      >
-                        {course.progress > 0 ? `${course.progress}%` : cfg.label}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {hasCert && (
+                          <span className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full border bg-amber-500/10 text-amber-400 border-amber-500/20">
+                            <Award size={11} /> Certificado
+                          </span>
+                        )}
+                        <span
+                          className={`text-xs font-bold px-2.5 py-1 rounded-full border ${cfg.badge}`}
+                        >
+                          {course.progress > 0 ? `${course.progress}%` : cfg.label}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </Link>
