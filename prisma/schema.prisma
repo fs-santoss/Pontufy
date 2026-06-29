@@ -43,10 +43,11 @@ model User {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  tenant            Tenant             @relation(fields: [tenantId], references: [id])
-  pointsLedger      PointsLedger[]
-  lessonCompletions LessonCompletion[]
-  passwordReset     PasswordReset?
+  tenant              Tenant               @relation(fields: [tenantId], references: [id])
+  pointsLedger        PointsLedger[]
+  lessonCompletions   LessonCompletion[]
+  passwordReset       PasswordReset?
+  issuedCertificates  IssuedCertificate[]
 
   @@index([tenantId])
 }
@@ -175,4 +176,19 @@ model Invitation {
 
   @@index([tenantId])
   @@index([token])
+}
+
+model IssuedCertificate {
+  id         String   @id @default(uuid())
+  userId     String
+  tenantId   String
+  courseId   String
+  courseName String
+  issuedAt   DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([userId])
+  @@index([tenantId])
 }

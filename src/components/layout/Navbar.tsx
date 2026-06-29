@@ -1,6 +1,6 @@
 'use client';
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Search, User, Coins, LogOut, Menu, X, LayoutDashboard, ShieldCheck } from 'lucide-react';
+import { Search, User, Coins, LogOut, Menu, X, LayoutDashboard, ShieldCheck, Award } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -57,6 +57,7 @@ export default function Navbar() {
     { href: '/cursos', label: 'Meus Cursos' },
     { href: '/loja', label: 'Benefícios' },
     { href: '/wallet', label: 'Carteira' },
+    { href: '/certificados', label: 'Certificados' },
   ];
 
   const isActive = (href: string) => pathname === href;

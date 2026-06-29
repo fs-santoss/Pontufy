@@ -125,6 +125,12 @@ export async function POST(request: Request) {
 
     const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
 
+    await prisma.issuedCertificate.upsert({
+      where: { userId_courseId: { userId, courseId } },
+      update: { issuedAt: new Date(), courseName: course.title },
+      create: { userId, tenantId, courseId, courseName: course.title },
+    });
+
     return new Response(pdfBuffer, {
       headers: {
         'Content-Type': 'application/pdf',
