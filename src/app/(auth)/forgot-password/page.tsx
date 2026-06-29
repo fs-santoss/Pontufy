@@ -35,72 +35,84 @@ export default function ForgotPasswordPage() {
     }
   };
 
-  if (sent) {
-    return (
-      <div className="min-h-screen bg-[#F8F9FA] flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <h2 className="text-center text-3xl font-black text-brand-slate tracking-tight">Pontufy</h2>
-          <div className="mt-8 bg-white py-8 px-4 shadow-sm sm:rounded-2xl sm:px-10 border border-gray-100">
-            <div className="text-center">
-              <p className="text-brand-slate font-medium">Email enviado!</p>
-              <p className="mt-2 text-sm text-gray-500">
-                Se o email estiver cadastrado, você receberá um link para redefinir sua senha.
-              </p>
-              <Link href="/login" className="mt-6 inline-block text-sm font-medium text-emerald-600 hover:text-emerald-500">
-                Voltar para login
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-[#F8F9FA] flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="text-center text-3xl font-black text-brand-slate tracking-tight">Pontufy</h2>
-        <p className="mt-2 text-center text-sm text-gray-500">Recuperação de senha</p>
-      </div>
+    <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center px-4 relative">
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse 60% 40% at 50% 0%, rgba(16,185,129,0.08) 0%, transparent 70%)',
+        }}
+      />
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-sm sm:rounded-2xl sm:px-10 border border-gray-100">
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            {error && (
-              <div className="bg-rose-50 text-rose-500 text-sm p-3 rounded-lg text-center font-medium">
-                {error}
-              </div>
-            )}
+      <Link href="/" className="mb-10 text-3xl font-black tracking-tight text-white">
+        <span className="text-emerald-400">Pontu</span>fy
+      </Link>
 
-            <div>
-              <label className="block text-sm font-medium text-brand-slate">E-mail</label>
-              <div className="mt-1">
+      <div className="w-full max-w-sm">
+        {sent ? (
+          <div className="bg-[#141414] border border-[#2a2a2a] rounded-2xl p-8 shadow-2xl shadow-black/50 text-center">
+            <p className="text-white font-semibold mb-2">Email enviado!</p>
+            <p className="text-sm text-gray-500 mb-6">
+              Se o email estiver cadastrado, você receberá um link para redefinir sua senha.
+            </p>
+            <Link
+              href="/login"
+              className="inline-block text-sm font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
+            >
+              Voltar para login
+            </Link>
+          </div>
+        ) : (
+          <div className="bg-[#141414] border border-[#2a2a2a] rounded-2xl p-8 shadow-2xl shadow-black/50">
+            <h1 className="text-xl font-bold text-white mb-1">Recuperar senha</h1>
+            <p className="text-gray-500 text-sm mb-6">
+              Informe seu email para receber o link de redefinição
+            </p>
+
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              {error && (
+                <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-3 rounded-lg text-center font-medium">
+                  {error}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-400 mb-1.5 uppercase tracking-wide">
+                  E-mail
+                </label>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2.5 border border-gray-200 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm text-brand-slate bg-gray-50/50"
+                  className="w-full px-4 py-3 bg-[#1f1f1f] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/50 text-sm transition-colors"
                   placeholder="voce@empresa.com"
                 />
               </div>
-            </div>
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-emerald-900 bg-gradient-pontufy hover:shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {isLoading ? <Loader2 className="animate-spin" size={20} /> : 'Enviar link de recuperação'}
-            </button>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full flex justify-center items-center py-3 px-4 rounded-lg text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-[#141414] disabled:opacity-50 disabled:cursor-not-allowed gap-2"
+              >
+                {isLoading ? (
+                  <><Loader2 className="animate-spin" size={18} /> Enviando...</>
+                ) : (
+                  'Enviar link de recuperação'
+                )}
+              </button>
 
-            <div className="text-center">
-              <Link href="/login" className="text-sm font-medium text-emerald-600 hover:text-emerald-500">
-                Voltar para login
-              </Link>
-            </div>
-          </form>
-        </div>
+              <div className="text-center pt-1">
+                <Link
+                  href="/login"
+                  className="text-sm font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
+                >
+                  Voltar para login
+                </Link>
+              </div>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );

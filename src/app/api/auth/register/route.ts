@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { randomBytes, scrypt } from 'crypto';
 import { promisify } from 'util';
 import { prisma } from '@/backend/db';
+import { sendWelcomeEmail } from '@/lib/email';
 
 const scryptAsync = promisify(scrypt);
 
@@ -22,9 +23,9 @@ export async function POST(request: Request) {
       );
     }
 
-    if (typeof password !== 'string' || password.length < 6) {
+    if (typeof password !== 'string' || password.length < 8) {
       return NextResponse.json(
-        { error: 'A senha deve ter pelo menos 6 caracteres.' },
+        { error: 'A senha deve ter pelo menos 8 caracteres.' },
         { status: 400 },
       );
     }
@@ -76,6 +77,8 @@ export async function POST(request: Request) {
         data: { usedAt: new Date() },
       }),
     ]);
+
+    sendWelcomeEmail(invitation.email, name.trim()).catch(() => {});
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

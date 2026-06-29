@@ -57,8 +57,8 @@ function RegisterForm() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('A senha deve ter pelo menos 6 caracteres.');
+    if (password.length < 8) {
+      setError('A senha deve ter pelo menos 8 caracteres.');
       return;
     }
 
@@ -118,7 +118,7 @@ function RegisterForm() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Mínimo 6 caracteres"
+              placeholder="Mínimo 8 caracteres"
               className="w-full px-4 py-3 pr-11 bg-[#1f1f1f] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/50 text-sm transition-colors"
             />
             <button
