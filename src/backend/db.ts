@@ -49,8 +49,9 @@ const RELATION_SAFE_READ_OPS = ['findFirst', 'findFirstOrThrow', 'findMany', 'co
  *  - Lesson: no tenantId column — reads are scoped through the parent Course
  *    relation (`course.tenantId`). findUnique cannot carry a relation filter, so
  *    tenant-sensitive lookups must use findFirst (enforced at call sites).
- *  - LessonCompletion: keyed by userId; callers always constrain by the session
- *    userId, so no tenant column is needed.
+ *  - LessonCompletion: scoped by tenantId (injected automatically by this extension).
+ *    Use findFirst (not findUnique) for tenant-sensitive lookups — findUnique rejects
+ *    extra where fields injected by the interceptor.
  */
 export function getTenantDb(tenantId: string) {
   if (!tenantId) throw new Error('Operação negada: tenantId não fornecido.');
@@ -59,7 +60,7 @@ export function getTenantDb(tenantId: string) {
     query: {
       $allModels: {
         async $allOperations({ model, operation, args, query }: any) {
-          if (model === 'Tenant' || model === 'LessonCompletion') {
+          if (model === 'Tenant') {
             return query(args);
           }
 

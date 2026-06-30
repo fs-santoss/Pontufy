@@ -25,11 +25,12 @@ model Tenant {
 
   locale          String   @default("pt-BR")  // 'pt-BR', 'en', 'es'
 
-  users           User[]
-  courses         Course[]
-  pointsLedger    PointsLedger[]
-  rewards         Reward[]
-  invitations     Invitation[]
+  users              User[]
+  courses            Course[]
+  pointsLedger       PointsLedger[]
+  rewards            Reward[]
+  invitations        Invitation[]
+  lessonCompletions  LessonCompletion[]
 }
 
 model User {
@@ -88,14 +89,17 @@ model Lesson {
 model LessonCompletion {
   id        String   @id @default(uuid())
   userId    String
+  tenantId  String
   lessonId  String
   createdAt DateTime @default(now())
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@unique([userId, lessonId])
   @@index([userId])
+  @@index([tenantId])
 }
 
 model PointsLedger {
