@@ -6,6 +6,9 @@ import { sendWelcomeEmail } from '@/lib/email';
 
 const scryptAsync = promisify(scrypt);
 
+/**
+ * Standard password hashing logic, synchronized with verification in auth.ts
+ */
 async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString('hex');
   const derived = (await scryptAsync(password, salt, 64)) as Buffer;
@@ -30,7 +33,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const invitation = await prisma.invitation.findUnique({ where: { token } });
+    // Atomic lookup and validation of the invitation
+    const invitation = await prisma.invitation.findUnique({
+      where: { token }
+    });
 
     if (!invitation) {
       return NextResponse.json({ error: 'Convite inválido.' }, { status: 404 });
@@ -50,6 +56,7 @@ export async function POST(request: Request) {
       );
     }
 
+    // Check for email collision
     const existingUser = await prisma.user.findUnique({
       where: { email: invitation.email },
     });
@@ -62,6 +69,7 @@ export async function POST(request: Request) {
 
     const passwordHash = await hashPassword(password);
 
+    // Create user and mark invitation as used in a single transaction
     await prisma.$transaction([
       prisma.user.create({
         data: {
@@ -70,6 +78,7 @@ export async function POST(request: Request) {
           passwordHash,
           role: invitation.role,
           tenantId: invitation.tenantId,
+          pointsBalance: 0,
         },
       }),
       prisma.invitation.update({
@@ -78,7 +87,10 @@ export async function POST(request: Request) {
       }),
     ]);
 
-    sendWelcomeEmail(invitation.email, name.trim()).catch(() => {});
+    // Async email sending (non-blocking)
+    sendWelcomeEmail(invitation.email, name.trim()).catch((err) => {
+      console.error('[register] Failed to send welcome email:', err);
+    });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

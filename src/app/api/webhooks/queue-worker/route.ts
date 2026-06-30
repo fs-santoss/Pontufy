@@ -7,10 +7,7 @@ import { broadcastToTenant } from '@/app/api/notifications/stream/route';
 import { logAudit } from '@/lib/audit';
 
 /**
- * Verifies that the request genuinely originates from QStash by validating the
- * HMAC signature against the configured signing keys. Returns false when the
- * signature is missing/invalid, or when signing keys are not configured (the
- * worker has no legitimate caller other than QStash, so it fails closed).
+ * Verifies that the request genuinely originates from QStash.
  */
 async function verifyQStashSignature(req: NextRequest, body: string): Promise<boolean> {
   const currentSigningKey = process.env.QSTASH_CURRENT_SIGNING_KEY;
@@ -56,11 +53,11 @@ const SYSTEM_PROMPT = `Você é o motor de IA da Pontufy — uma plataforma B2B 
 Missão: Gerar um curso completo (módulos + aulas) adaptado ao setor vertical da empresa.
 
 Regras Invioláveis:
-1. FOCO SETORIAL — Adapte títulos, exemplos e vocabulário rigorosamente à vertical informada (Saúde, Tecnologia, Varejo ou Indústria). Não produza conteúdo genérico.
-2. LIMITE DE PONTOS — A soma total de pontos de TODAS as aulas do curso NÃO pode exceder 200 pts. Distribua proporcionalmente: aulas avançadas = mais pontos, introdutórias = menos.
-3. ESTRUTURA — Gere entre 2 e 4 módulos, cada um com 2 a 4 aulas. Alterne tipos (text/video) para variar a experiência.
-4. QUIZ — Inclua um array "quiz" com 2 a 3 perguntas de múltipla escolha ao final de cada módulo. Cada pergunta deve ter 4 opções e um correctIndex (0-based) indicando a resposta certa.
-5. FORMATO — Responda exclusivamente no schema JSON fornecido. Zero markdown, zero texto fora do JSON.`;
+1. FOCO SETORIAL — Adapte títulos, exemplos e vocabulário rigorosamente à vertical informada.
+2. LIMITE DE PONTOS — A soma total de pontos de TODAS as aulas do curso NÃO pode exceder 200 pts.
+3. ESTRUTURA — Gere entre 2 e 4 módulos, cada um com 2 a 4 aulas.
+4. QUIZ — Inclua um array "quiz" com 2 a 3 perguntas de múltipla escolha ao final de cada módulo.
+5. FORMATO — Responda exclusivamente no schema JSON fornecido.`;
 
 const GEMINI_RESPONSE_SCHEMA = {
   type: 'OBJECT' as const,
@@ -114,22 +111,18 @@ const GEMINI_RESPONSE_SCHEMA = {
 
 const FALLBACK_CATALOG: Record<string, CourseGenerated> = {
   tech: {
-    title: 'Segurança da Informação e LGPD',
-    description: 'Cibersegurança, engenharia social e tratamento de dados.',
+    title: 'Fundamentos de Cibersegurança',
+    description: 'Proteção de dados, LGPD e boas práticas digitais.',
     modules: [
-      { title: 'Fundamentos de Segurança', lessons: [
-        { title: 'Engenharia Social e Phishing', type: 'text', points: 30 },
-        { title: 'Gestão de Senhas e Acessos', type: 'video', points: 50 },
-      ]},
-      { title: 'LGPD na Prática', lessons: [
-        { title: 'Tratamento de Dados e Consentimento', type: 'text', points: 40 },
-        { title: 'Ciclo de Vida do Dado', type: 'video', points: 30 },
+      { title: 'Introdução à Segurança', lessons: [
+        { title: 'Phishing e Engenharia Social', type: 'text', points: 40 },
+        { title: 'Gestão de Credenciais', type: 'video', points: 60 },
       ]},
     ],
   },
 };
 
-function normalizePoints(lessons: { title: string; type: 'text' | 'video'; pointsAssigned: number }[]) {
+function normalizePoints(lessons: any[]) {
   const total = lessons.reduce((s, l) => s + l.pointsAssigned, 0);
   if (total <= 200) return;
   let runningSum = 0;
@@ -144,7 +137,6 @@ function normalizePoints(lessons: { title: string; type: 'text' | 'video'; point
 }
 
 export async function POST(request: NextRequest) {
-  // Read the raw body once — signature verification needs the exact bytes.
   const rawBody = await request.text();
 
   const isValid = await verifyQStashSignature(request, rawBody);
@@ -160,7 +152,6 @@ export async function POST(request: NextRequest) {
     }
 
     const db = getTenantDb(tenantId);
-
     let courseData: CourseGenerated;
     const apiKey = process.env.GEMINI_API_KEY;
 
@@ -169,31 +160,35 @@ export async function POST(request: NextRequest) {
     } else {
       try {
         const ai = new GoogleGenAI({ apiKey });
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: `Vertical: ${vertical || 'tech'}. Prompt do RH: ${prompt}`,
-          config: {
-            systemInstruction: SYSTEM_PROMPT,
+        const model = ai.getGenerativeModel({
+          model: 'gemini-1.5-flash',
+          systemInstruction: SYSTEM_PROMPT,
+        });
+
+        const result = await model.generateContent({
+          contents: [{ role: 'user', parts: [{ text: `Vertical: ${vertical || 'tech'}. Prompt: ${prompt}` }] }],
+          generationConfig: {
             responseMimeType: 'application/json',
             responseSchema: GEMINI_RESPONSE_SCHEMA,
-            temperature: 0.6,
           },
         });
-        const text = response.text;
+
+        const text = result.response.text();
         if (!text) throw new Error('Empty AI response');
         courseData = CourseSchema.parse(JSON.parse(text));
-      } catch {
+      } catch (err) {
+        console.error('[queue-worker] AI Generation failed, using fallback:', err);
         courseData = FALLBACK_CATALOG[vertical] || FALLBACK_CATALOG.tech;
       }
     }
 
-    const lessonsToCreate: { title: string; type: 'text' | 'video'; pointsAssigned: number }[] = [];
+    const lessonsToCreate: any[] = [];
     for (const mod of courseData.modules) {
       for (const lesson of mod.lessons) {
         lessonsToCreate.push({
           title: `[${mod.title}] ${lesson.title}`,
           type: lesson.type,
-          pointsAssigned: typeof lesson.points === 'number' ? lesson.points : 10,
+          pointsAssigned: lesson.points || 10,
         });
       }
     }
@@ -204,28 +199,31 @@ export async function POST(request: NextRequest) {
       .map((m) => ({ module: m.title, questions: m.quiz }));
 
     const newCourse = await db.$transaction(async (tx: any) => {
-      await tx.tenant.update({
-        where: { id: tenantId },
+      const debit = await tx.tenant.updateMany({
+        where: { id: tenantId, aiCredits: { gte: 1 } },
         data: { aiCredits: { decrement: 1 } },
       });
+      if (debit.count === 0) throw new Error('INSUFFICIENT_CREDITS');
+
       return tx.course.create({
         data: {
+          tenantId,
           title: courseData.title,
           description: courseData.description,
+          status: 'published',
           aiCreditsSpent: 1,
           quizJson: quizData.length > 0 ? JSON.stringify(quizData) : null,
-          status: 'published',
           lessons: { create: lessonsToCreate },
         },
         include: { lessons: true },
       });
     });
 
-    await logAudit({
+    logAudit({
       tenantId,
       action: 'COURSE_GENERATED_ASYNC',
       newValues: { courseId: newCourse.id, title: newCourse.title },
-    });
+    }).catch(() => {});
 
     broadcastToTenant(tenantId, 'course_created', {
       courseId: newCourse.id,

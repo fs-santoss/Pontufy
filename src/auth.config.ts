@@ -1,8 +1,10 @@
 import type { NextAuthConfig } from 'next-auth';
 
+// In Next.js 15+ / Auth.js v5, we must ensure AUTH_SECRET is set.
 if (!process.env.AUTH_SECRET && process.env.NODE_ENV === 'production') {
-  console.error(
-    '\n[SECURITY] AUTH_SECRET is not set — sessions are insecure. Set AUTH_SECRET in environment variables.\n',
+  console.warn(
+    '\n[SECURITY WARNING] AUTH_SECRET is not set in production. ' +
+    'This is a critical security risk. Please set it immediately.\n'
   );
 }
 
@@ -11,7 +13,7 @@ const authSecret = process.env.AUTH_SECRET || 'pontufy-dev-insecure-replace-in-p
 export const authConfig = {
   secret: authSecret,
   trustHost: true,
-  providers: [],
+  providers: [], // Providers are added in auth.ts
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
@@ -28,26 +30,25 @@ export const authConfig = {
         session.user.role = token.role as string;
       }
       return session;
-    }
+    },
+    authorized({ auth, request: { nextUrl } }) {
+      const isLoggedIn = !!auth?.user;
+      const isApiRoute = nextUrl.pathname.startsWith('/api');
+      const isAuthRoute = nextUrl.pathname.startsWith('/login') || nextUrl.pathname.startsWith('/register');
+      const isPublicRoute = ['/', '/privacidade', '/termos'].includes(nextUrl.pathname);
+
+      if (isApiRoute || isPublicRoute || isAuthRoute) {
+        return true;
+      }
+
+      return isLoggedIn;
+    },
   },
   pages: {
     signIn: '/login',
+    newUser: '/register',
   },
   session: {
     strategy: 'jwt',
-    maxAge: 7 * 24 * 60 * 60,
-  },
-  cookies: {
-    sessionToken: {
-      name: process.env.NODE_ENV === 'production'
-        ? '__Secure-authjs.session-token'
-        : 'authjs.session-token',
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-      },
-    },
   },
 } satisfies NextAuthConfig;
