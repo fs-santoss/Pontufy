@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { getSessionContext } from '@/backend/session';
-import { getTenantDb } from '@/backend/db';
+import { prisma, getTenantDb } from '@/backend/db';
+
+type DailyRow = { day: Date; completions: bigint; points: bigint };
 
 export async function GET() {
   try {
@@ -12,63 +15,55 @@ export async function GET() {
 
     const db = getTenantDb(tenantId);
 
-    const users = await db.user.findMany({
-      where: { role: { not: 'admin_rh' } },
-      select: { id: true },
-    });
-    const userIds = users.map((u: any) => u.id);
+    // All scalar metrics aggregated in PostgreSQL — no in-memory accumulation.
+    const [totalUsers, totalCompletions, pointsAwarded, pointsRedeemed] = await Promise.all([
+      db.user.count({ where: { role: { not: 'admin_rh' } } }),
+      db.lessonCompletion.count({ where: { user: { role: { not: 'admin_rh' } } } }),
+      db.pointsLedger.aggregate({ _sum: { pointsAmount: true }, where: { type: 'gain' } }),
+      db.pointsLedger.aggregate({ _sum: { pointsAmount: true }, where: { type: 'loss' } }),
+    ]);
 
-    const completions = await db.lessonCompletion.findMany({
-      where: { userId: { in: userIds } },
-      select: { createdAt: true },
-      orderBy: { createdAt: 'asc' },
-    });
+    // Daily engagement for the last 30 days: COUNT and SUM computed entirely in PostgreSQL.
+    // $queryRaw is required because Prisma groupBy does not support DATE_TRUNC.
+    // tenantId is injected explicitly here since $queryRaw bypasses the Zero-Trust extension.
+    const rows = await prisma.$queryRaw<DailyRow[]>(Prisma.sql`
+      SELECT
+        COALESCE(c.day, p.day)       AS day,
+        COALESCE(c.completions, 0)   AS completions,
+        COALESCE(p.points, 0)        AS points
+      FROM (
+        SELECT DATE_TRUNC('day', "createdAt")::date AS day,
+               COUNT(*)                             AS completions
+        FROM   "LessonCompletion"
+        WHERE  "tenantId"  = ${tenantId}
+          AND  "createdAt" >= NOW() - INTERVAL '30 days'
+        GROUP  BY DATE_TRUNC('day', "createdAt")::date
+      ) c
+      FULL OUTER JOIN (
+        SELECT DATE_TRUNC('day', "timestamp")::date AS day,
+               SUM("pointsAmount")                  AS points
+        FROM   "PointsLedger"
+        WHERE  "tenantId"  = ${tenantId}
+          AND  "type"      = 'gain'
+          AND  "timestamp" >= NOW() - INTERVAL '30 days'
+        GROUP  BY DATE_TRUNC('day', "timestamp")::date
+      ) p ON c.day = p.day
+      ORDER  BY day ASC
+    `);
 
-    const gains = await db.pointsLedger.findMany({
-      where: { tenantId, type: 'gain' },
-      select: { pointsAmount: true, timestamp: true },
-    });
-
-    const losses = await db.pointsLedger.findMany({
-      where: { tenantId, type: 'loss' },
-      select: { pointsAmount: true },
-    });
-
-    // Aggregate completions and points by day
-    const dailyMap = new Map<string, { completions: number; points: number }>();
-
-    for (const c of completions) {
-      const day = c.createdAt.toISOString().split('T')[0];
-      const entry = dailyMap.get(day) || { completions: 0, points: 0 };
-      entry.completions++;
-      dailyMap.set(day, entry);
-    }
-
-    for (const g of gains) {
-      const day = g.timestamp.toISOString().split('T')[0];
-      const entry = dailyMap.get(day) || { completions: 0, points: 0 };
-      entry.points += g.pointsAmount;
-      dailyMap.set(day, entry);
-    }
-
-    const engagement = Array.from(dailyMap.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .slice(-30)
-      .map(([date, data]) => ({
-        date: new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-        completions: data.completions,
-        points: data.points,
-      }));
-
-    const totalPointsAwarded = gains.reduce((s, g) => s + g.pointsAmount, 0);
-    const totalPointsRedeemed = losses.reduce((s, l) => s + l.pointsAmount, 0);
+    // Only date formatting happens in Node.js — the aggregation is already done.
+    const engagement = rows.map((r) => ({
+      date: new Date(r.day).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+      completions: Number(r.completions),
+      points: Number(r.points),
+    }));
 
     return NextResponse.json({
       summary: {
-        totalUsers: userIds.length,
-        totalCompletions: completions.length,
-        totalPointsAwarded,
-        totalPointsRedeemed,
+        totalUsers,
+        totalCompletions,
+        totalPointsAwarded: pointsAwarded._sum.pointsAmount ?? 0,
+        totalPointsRedeemed: pointsRedeemed._sum.pointsAmount ?? 0,
       },
       engagement,
     });
