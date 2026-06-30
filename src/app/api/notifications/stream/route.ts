@@ -1,28 +1,24 @@
 import { NextRequest } from 'next/server';
 import { getSessionContext } from '@/backend/session';
+import { getRedis } from '@/lib/redis';
 
-type Listener = {
-  tenantId: string;
-  userId: string;
-  controller: ReadableStreamDefaultController;
-};
+const POLL_MS = 1000;
+const SSE_TTL = 3600; // seconds — auto-clean Redis list after 1h of inactivity
+const encode = (s: string) => new TextEncoder().encode(s);
 
-// LIMITATION: module-level state is per-instance on serverless — broadcasts
-// from other API routes (generate, queue-worker) won't reach SSE listeners.
-// A Redis Pub/Sub channel is needed for cross-instance delivery.
-const listeners: Listener[] = [];
-
-export function broadcastToTenant(tenantId: string, event: string, data: any) {
-  const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-  for (let i = listeners.length - 1; i >= 0; i--) {
-    if (listeners[i].tenantId === tenantId) {
-      try {
-        listeners[i].controller.enqueue(new TextEncoder().encode(payload));
-      } catch {
-        listeners.splice(i, 1);
-      }
-    }
-  }
+/**
+ * Publish a notification to all SSE clients connected to a tenant.
+ * Uses a Redis List so events survive across serverless instances.
+ * Fire-and-forget: callers do not need to await.
+ */
+export function broadcastToTenant(tenantId: string, event: string, data: any): void {
+  const redis = getRedis();
+  if (!redis) return;
+  const key = `sse:${tenantId}`;
+  redis
+    .rpush(key, JSON.stringify({ type: event, data }))
+    .then(() => redis.expire(key, SSE_TTL))
+    .catch(() => {});
 }
 
 export async function GET(request: NextRequest) {
@@ -34,27 +30,56 @@ export async function GET(request: NextRequest) {
   }
 
   const { tenantId, userId } = session;
+  const redis = getRedis();
+  const key = `sse:${tenantId}`;
 
   const stream = new ReadableStream({
-    start(controller) {
-      const listener: Listener = { tenantId, userId, controller };
-      listeners.push(listener);
+    async start(controller) {
+      controller.enqueue(
+        encode(`event: connected\ndata: ${JSON.stringify({ userId, tenantId })}\n\n`),
+      );
+
+      // Start at the current tail so we don't replay events that arrived before this connection.
+      let pos = redis ? await redis.llen(key) : 0;
 
       const keepAlive = setInterval(() => {
         try {
-          controller.enqueue(new TextEncoder().encode(': keepalive\n\n'));
+          controller.enqueue(encode(': keepalive\n\n'));
         } catch {
           clearInterval(keepAlive);
         }
-      }, 30000);
+      }, 20_000);
 
-      controller.enqueue(new TextEncoder().encode(`event: connected\ndata: ${JSON.stringify({ userId, tenantId })}\n\n`));
+      const poll = async () => {
+        if (request.signal.aborted) return;
+        if (redis) {
+          try {
+            const items = await redis.lrange(key, pos, -1);
+            if (items && items.length > 0) {
+              pos += items.length;
+              for (const item of items) {
+                try {
+                  const msg = JSON.parse(String(item)) as { type: string; data: unknown };
+                  controller.enqueue(
+                    encode(`event: ${msg.type}\ndata: ${JSON.stringify(msg.data)}\n\n`),
+                  );
+                } catch {}
+              }
+            }
+          } catch {}
+        }
+        if (!request.signal.aborted) {
+          setTimeout(poll, POLL_MS);
+        }
+      };
+
+      setTimeout(poll, POLL_MS);
 
       request.signal.addEventListener('abort', () => {
         clearInterval(keepAlive);
-        const idx = listeners.indexOf(listener);
-        if (idx !== -1) listeners.splice(idx, 1);
-        try { controller.close(); } catch {}
+        try {
+          controller.close();
+        } catch {}
       });
     },
   });
