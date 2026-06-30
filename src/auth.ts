@@ -27,7 +27,14 @@ async function verifyPassword(password: string, stored: string): Promise<boolean
   if (!salt || !hash) return false;
   try {
     const derived = (await scryptAsync(password, salt, 64)) as Buffer;
-    return timingSafeEqual(derived, Buffer.from(hash, 'hex'));
+    const hashBuffer = Buffer.from(hash, 'hex');
+
+    // timingSafeEqual throws an exception if buffers are not the same length.
+    if (derived.length !== hashBuffer.length) {
+      return false;
+    }
+
+    return timingSafeEqual(derived, hashBuffer);
   } catch {
     return false;
   }
@@ -59,7 +66,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!isValid) return null;
 
         // Super admins must originate from the @pontufy.com domain.
-        if (user.role === 'super_admin' && !user.email.endsWith('@pontufy.com')) {
+        if (user.role?.toLowerCase() === 'super_admin' && !user.email?.toLowerCase().endsWith('@pontufy.com')) {
           return null;
         }
 

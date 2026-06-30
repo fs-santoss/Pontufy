@@ -14,7 +14,7 @@ export const proxy = auth((req: any) => {
 
   // ── Super-admin login page ──────────────────────────────────────────────
   if (pathname.startsWith('/superadmin/login')) {
-    if (isLoggedIn && role === 'super_admin' && email.endsWith('@pontufy.com')) {
+    if (isLoggedIn && role?.toLowerCase() === 'super_admin' && email?.toLowerCase().endsWith('@pontufy.com')) {
       return NextResponse.redirect(new URL('/superadmin', req.nextUrl));
     }
     return;
@@ -26,8 +26,8 @@ export const proxy = auth((req: any) => {
   if (pathname.startsWith('/superadmin')) {
     const authorized =
       isLoggedIn &&
-      role === 'super_admin' &&
-      email.endsWith('@pontufy.com');
+      role?.toLowerCase() === 'super_admin' &&
+      email?.toLowerCase().endsWith('@pontufy.com');
 
     if (!authorized) {
       return new NextResponse(null, { status: 403 });

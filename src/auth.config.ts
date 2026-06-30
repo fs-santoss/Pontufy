@@ -15,17 +15,26 @@ export const authConfig = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
-        token.tenantId = user.tenantId;
-        token.role = user.role;
+        return {
+          ...token,
+          id: user.id,
+          tenantId: user.tenantId,
+          role: user.role,
+        };
       }
       return token;
     },
     async session({ session, token }) {
-      if (token && session.user) {
-        session.user.id = token.id as string;
-        session.user.tenantId = token.tenantId as string;
-        session.user.role = token.role as string;
+      if (token) {
+        return {
+          ...session,
+          user: {
+            ...session.user,
+            id: token.id as string,
+            tenantId: token.tenantId as string,
+            role: token.role as string,
+          },
+        };
       }
       return session;
     }
