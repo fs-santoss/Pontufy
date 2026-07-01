@@ -1,8 +1,12 @@
 import type { NextAuthConfig } from 'next-auth';
 
 if (!process.env.AUTH_SECRET && process.env.NODE_ENV === 'production') {
-  console.error(
-    '\n[SECURITY] AUTH_SECRET is not set — sessions are insecure. Set AUTH_SECRET in environment variables.\n',
+  // Fail closed: the fallback below is a fixed, publicly-readable string. Silently
+  // signing production JWTs with it would let anyone who reads this source forge a
+  // session (including super_admin) — crash loudly instead of degrading silently.
+  throw new Error(
+    '[SECURITY] AUTH_SECRET não está definido em produção. Configure a variável de ' +
+      'ambiente antes de iniciar a aplicação.',
   );
 }
 

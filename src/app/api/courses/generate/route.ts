@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { getSessionContext } from '@/backend/session';
 import { getTenantDb } from '@/backend/db';
 import { z } from 'zod';
@@ -298,6 +299,9 @@ export async function POST(request: Request) {
     const workerUrl = process.env.QSTASH_WORKER_URL || `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/webhooks/queue-worker`;
 
     if (qstashToken) {
+      // Generated once here and echoed back by QStash on every retry of this same
+      // message, so the worker can deduplicate instead of re-billing AI credits.
+      const idempotencyKey = randomUUID();
       const qstashRes = await fetch('https://qstash.upstash.io/v2/publish/' + encodeURIComponent(workerUrl), {
         method: 'POST',
         headers: {
@@ -305,7 +309,7 @@ export async function POST(request: Request) {
           'Content-Type': 'application/json',
           'Upstash-Retries': '2',
         },
-        body: JSON.stringify({ tenantId, prompt, vertical }),
+        body: JSON.stringify({ tenantId, prompt, vertical, idempotencyKey }),
       });
 
       if (!qstashRes.ok) {
@@ -359,24 +363,37 @@ export async function POST(request: Request) {
       .filter((m) => m.quiz && m.quiz.length > 0)
       .map((m) => ({ module: m.title, questions: m.quiz }));
 
-    const newCourse = await db.$transaction(async (tx: any) => {
-      await tx.tenant.update({
-        where: { id: tenantId },
-        data: { aiCredits: { decrement: 1 } },
-      });
+    let newCourse;
+    try {
+      newCourse = await db.$transaction(async (tx: any) => {
+        // Atomic conditional decrement — closes the TOCTOU gap between the
+        // pre-check above and this write under concurrent requests.
+        const debit = await tx.tenant.updateMany({
+          where: { id: tenantId, aiCredits: { gte: 1 } },
+          data: { aiCredits: { decrement: 1 } },
+        });
+        if (debit.count === 0) {
+          throw new Error('INSUFFICIENT_CREDITS');
+        }
 
-      return tx.course.create({
-        data: {
-          title: courseData.title,
-          description: courseData.description,
-          aiCreditsSpent: 1,
-          quizJson: quizData.length > 0 ? JSON.stringify(quizData) : null,
-          status: 'published',
-          lessons: { create: lessonsToCreate },
-        },
-        include: { lessons: true },
+        return tx.course.create({
+          data: {
+            title: courseData.title,
+            description: courseData.description,
+            aiCreditsSpent: 1,
+            quizJson: quizData.length > 0 ? JSON.stringify(quizData) : null,
+            status: 'published',
+            lessons: { create: lessonsToCreate },
+          },
+          include: { lessons: true },
+        });
       });
-    });
+    } catch (err: any) {
+      if (err instanceof Error && err.message === 'INSUFFICIENT_CREDITS') {
+        return NextResponse.json({ error: 'Créditos de IA insuficientes (concorrência).' }, { status: 402 });
+      }
+      throw err;
+    }
 
     broadcastToTenant(tenantId, 'course_created', {
       courseId: newCourse.id,

@@ -5,6 +5,7 @@ import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
 import { broadcastToTenant } from '@/app/api/notifications/stream/route';
 import { logAudit } from '@/lib/audit';
+import { getRedis } from '@/lib/redis';
 
 /**
  * Verifies that the request genuinely originates from QStash by validating the
@@ -153,10 +154,23 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { tenantId, prompt, vertical } = JSON.parse(rawBody);
+    const { tenantId, prompt, vertical, idempotencyKey } = JSON.parse(rawBody);
 
     if (!tenantId || !prompt) {
       return NextResponse.json({ error: 'MISSING_FIELDS' }, { status: 400 });
+    }
+
+    // QStash redelivers the same message on retry (e.g. if the prior response was
+    // lost in transit). Dedupe on the key minted once by the enqueuing route so a
+    // retry can't create a second course or burn AI credits twice.
+    if (idempotencyKey) {
+      const redis = getRedis();
+      if (redis) {
+        const firstSeen = await redis.set(`qstash:idem:${idempotencyKey}`, '1', { nx: true, ex: 86400 });
+        if (firstSeen !== 'OK') {
+          return NextResponse.json({ success: true, deduped: true });
+        }
+      }
     }
 
     const db = getTenantDb(tenantId);
@@ -203,23 +217,39 @@ export async function POST(request: NextRequest) {
       .filter((m) => m.quiz && m.quiz.length > 0)
       .map((m) => ({ module: m.title, questions: m.quiz }));
 
-    const newCourse = await db.$transaction(async (tx: any) => {
-      await tx.tenant.update({
-        where: { id: tenantId },
-        data: { aiCredits: { decrement: 1 } },
+    let newCourse;
+    try {
+      newCourse = await db.$transaction(async (tx: any) => {
+        // Atomic conditional decrement — a plain `update` can't detect concurrent
+        // exhaustion; this closes the race with generate/route.ts's synchronous path.
+        const debit = await tx.tenant.updateMany({
+          where: { id: tenantId, aiCredits: { gte: 1 } },
+          data: { aiCredits: { decrement: 1 } },
+        });
+        if (debit.count === 0) {
+          throw new Error('INSUFFICIENT_CREDITS');
+        }
+
+        return tx.course.create({
+          data: {
+            title: courseData.title,
+            description: courseData.description,
+            aiCreditsSpent: 1,
+            quizJson: quizData.length > 0 ? JSON.stringify(quizData) : null,
+            status: 'published',
+            lessons: { create: lessonsToCreate },
+          },
+          include: { lessons: true },
+        });
       });
-      return tx.course.create({
-        data: {
-          title: courseData.title,
-          description: courseData.description,
-          aiCreditsSpent: 1,
-          quizJson: quizData.length > 0 ? JSON.stringify(quizData) : null,
-          status: 'published',
-          lessons: { create: lessonsToCreate },
-        },
-        include: { lessons: true },
-      });
-    });
+    } catch (err: any) {
+      if (err instanceof Error && err.message === 'INSUFFICIENT_CREDITS') {
+        // 200 tells QStash the message was handled — retrying can never succeed
+        // once credits are exhausted, so retries would only waste worker invocations.
+        return NextResponse.json({ error: 'INSUFFICIENT_CREDITS' }, { status: 200 });
+      }
+      throw err;
+    }
 
     await logAudit({
       tenantId,
