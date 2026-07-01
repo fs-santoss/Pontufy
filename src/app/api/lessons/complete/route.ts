@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSessionContext } from '@/backend/session';
 import { getTenantDb } from '@/backend/db';
+import { acquireLock, releaseLock } from '@/lib/redis/mutex';
 
 export async function POST(request: Request) {
   try {
@@ -17,49 +18,60 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Aula não encontrada no escopo da empresa.' }, { status: 404 });
     }
 
-    // Idempotency: return current balance without double-crediting.
-    // findFirst required — findUnique rejects the tenantId injected by the interceptor.
-    const alreadyCompleted = await db.lessonCompletion.findFirst({
-      where: { userId, lessonId },
-    });
-    if (alreadyCompleted) {
-      const user = await db.user.findFirst({ where: { id: userId } });
-      return NextResponse.json({
-        success: true,
-        message: 'Aula já concluída anteriormente.',
-        newBalance: user?.pointsBalance ?? 0,
-        alreadyCompleted: true,
-      });
+    // Distributed lock prevents double-credit if the client fires two concurrent completions.
+    const lockKey = `lesson:${tenantId}:${userId}:${lessonId}`;
+    const lockAcquired = await acquireLock(lockKey, 10);
+    if (!lockAcquired) {
+      return NextResponse.json({ error: 'Transação já em andamento. Aguarde.' }, { status: 429 });
     }
 
-    const pointsToAward = lesson.pointsAssigned;
+    try {
+      // Idempotency: return current balance without double-crediting.
+      // findFirst required — findUnique rejects the tenantId injected by the interceptor.
+      const alreadyCompleted = await db.lessonCompletion.findFirst({
+        where: { userId, lessonId },
+      });
+      if (alreadyCompleted) {
+        const user = await db.user.findFirst({ where: { id: userId } });
+        return NextResponse.json({
+          success: true,
+          message: 'Aula já concluída anteriormente.',
+          newBalance: user?.pointsBalance ?? 0,
+          alreadyCompleted: true,
+        });
+      }
 
-    const result = await db.$transaction(async (tx: any) => {
-      await tx.lessonCompletion.create({ data: { userId, lessonId } });
+      const pointsToAward = lesson.pointsAssigned;
 
-      const updatedUser = await tx.user.update({
-        where: { id: userId },
-        data: { pointsBalance: { increment: pointsToAward } },
+      const result = await db.$transaction(async (tx: any) => {
+        await tx.lessonCompletion.create({ data: { userId, lessonId } });
+
+        const updatedUser = await tx.user.update({
+          where: { id: userId },
+          data: { pointsBalance: { increment: pointsToAward } },
+        });
+
+        await tx.pointsLedger.create({
+          data: {
+            userId,
+            tenantId,
+            type: 'gain',
+            pointsAmount: pointsToAward,
+            description: `Conclusão da Aula: ${lesson.title}`,
+          },
+        });
+
+        return { updatedUser };
       });
 
-      await tx.pointsLedger.create({
-        data: {
-          userId,
-          tenantId,
-          type: 'gain',
-          pointsAmount: pointsToAward,
-          description: `Conclusão da Aula: ${lesson.title}`,
-        },
+      return NextResponse.json({
+        success: true,
+        message: `Você ganhou +${pointsToAward} pontos!`,
+        newBalance: result.updatedUser.pointsBalance,
       });
-
-      return { updatedUser };
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: `Você ganhou +${pointsToAward} pontos!`,
-      newBalance: result.updatedUser.pointsBalance,
-    });
+    } finally {
+      await releaseLock(lockKey);
+    }
   } catch (error: any) {
     if (error.message === 'Não autenticado.') {
       return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });

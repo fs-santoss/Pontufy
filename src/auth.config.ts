@@ -1,8 +1,20 @@
 import type { NextAuthConfig } from 'next-auth';
+import { PHASE_PRODUCTION_BUILD } from 'next/constants';
 
-if (!process.env.AUTH_SECRET && process.env.NODE_ENV === 'production') {
-  console.error(
-    '\n[SECURITY] AUTH_SECRET is not set — sessions are insecure. Set AUTH_SECRET in environment variables.\n',
+// NODE_ENV is 'production' during `next build` too (not just at request-serving
+// runtime), and Turbopack evaluates this module while collecting page data — so
+// throwing unconditionally here fails every build, including Preview deploys that
+// legitimately don't carry a Production-only secret yet. NEXT_PHASE distinguishes
+// the build step from an actual running server; only the latter should crash.
+const isBuildPhase = process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD;
+
+if (!process.env.AUTH_SECRET && process.env.NODE_ENV === 'production' && !isBuildPhase) {
+  // Fail closed: the fallback below is a fixed, publicly-readable string. Silently
+  // signing production JWTs with it would let anyone who reads this source forge a
+  // session (including super_admin) — crash loudly instead of degrading silently.
+  throw new Error(
+    '[SECURITY] AUTH_SECRET não está definido em produção. Configure a variável de ' +
+      'ambiente antes de iniciar a aplicação.',
   );
 }
 
