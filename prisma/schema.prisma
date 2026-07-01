@@ -51,6 +51,7 @@ model User {
   issuedCertificates  IssuedCertificate[]
 
   @@index([tenantId])
+  @@index([tenantId, pointsBalance])
 }
 
 model Course {
@@ -116,6 +117,7 @@ model PointsLedger {
 
   @@index([userId])
   @@index([tenantId])
+  @@index([userId, timestamp])
 }
 
 model Reward {

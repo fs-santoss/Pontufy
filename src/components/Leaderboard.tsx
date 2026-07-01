@@ -1,6 +1,23 @@
 import { auth } from '@/auth';
 import { getTenantDb } from '@/backend/db';
+import { unstable_cache } from 'next/cache';
 import { Trophy } from 'lucide-react';
+
+// Args are part of the cache key, so each tenant gets its own cached entry —
+// a 60s-stale Top 5 is an acceptable trade for skipping a sort-heavy query
+// (ORDER BY pointsBalance DESC) on every dashboard render.
+const getTopUsers = unstable_cache(
+  async (tenantId: string) => {
+    const db = getTenantDb(tenantId);
+    return db.user.findMany({
+      orderBy: { pointsBalance: 'desc' },
+      take: 5,
+      select: { id: true, name: true, pointsBalance: true },
+    });
+  },
+  ['leaderboard-top5'],
+  { revalidate: 60 },
+);
 
 export default async function Leaderboard() {
   const session = await auth();
@@ -13,19 +30,10 @@ export default async function Leaderboard() {
   }
 
   const tenantId = session.user.tenantId;
-  const db = getTenantDb(tenantId);
 
   let users: { id: string; name: string; pointsBalance: number }[] = [];
   try {
-    users = await db.user.findMany({
-      orderBy: { pointsBalance: 'desc' },
-      take: 5,
-      select: {
-        id: true,
-        name: true,
-        pointsBalance: true,
-      },
-    });
+    users = await getTopUsers(tenantId);
   } catch (err) {
     console.error('[Leaderboard] Query error:', err);
   }
