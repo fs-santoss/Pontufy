@@ -11,6 +11,7 @@ import { randomUUID } from 'crypto';
 
 import { auth } from '@/auth';
 import { getTenantDb } from '@/backend/db';
+import { rateLimitCheck } from '@/lib/redis';
 
 const lessonSchema = z.object({
   title: z.string().min(3).describe('Titulo claro e objetivo da aula.'),
@@ -356,6 +357,15 @@ export async function generateTrainingCourse(
     return { success: false, error: `Acesso negado: seu papel e "${session.user.role}", apenas "admin_rh" pode gerar cursos.` };
   }
   const tenantId = session.user.tenantId;
+
+  const MAX_GENERATIONS_PER_DAY = 10;
+  const rateLimit = await rateLimitCheck(`ratelimit:generate:${tenantId}`, MAX_GENERATIONS_PER_DAY, 86400);
+  if (!rateLimit.allowed) {
+    return {
+      success: false,
+      error: `Limite de ${MAX_GENERATIONS_PER_DAY} gerações por dia atingido. Tente novamente em ${Math.ceil(rateLimit.resetIn / 3600)}h.`,
+    };
+  }
 
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) {

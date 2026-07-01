@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSessionContext } from '@/backend/session';
 import { getTenantDb } from '@/backend/db';
 import { acquireLock, releaseLock } from '@/lib/redis/mutex';
+import { checkVelocityLimit } from '@/lib/security/velocity';
 
 export async function POST(request: Request) {
   try {
@@ -39,6 +40,11 @@ export async function POST(request: Request) {
           newBalance: user?.pointsBalance ?? 0,
           alreadyCompleted: true,
         });
+      }
+
+      const velocity = await checkVelocityLimit(userId, tenantId);
+      if (!velocity.allowed) {
+        return NextResponse.json({ error: velocity.reason }, { status: 429 });
       }
 
       const pointsToAward = lesson.pointsAssigned;
